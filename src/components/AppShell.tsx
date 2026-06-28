@@ -43,7 +43,7 @@ export function AppShell() {
 
   const nav = [
     { to: "/", label: "Dashboard", Icon: LayoutDashboard, exact: true },
-    { to: "/dixon", label: "Dixon", Icon: Globe },
+    
     { to: "/call", label: "Live Call", Icon: Phone },
     { to: "/pipeline", label: "Pipeline", Icon: KanbanSquare },
     { to: "/follow-ups", label: "Follow-Ups", Icon: CalendarClock },
