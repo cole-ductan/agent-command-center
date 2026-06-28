@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,7 @@ type Note = {
 
 export function NotesTray() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const { open, view, draftTitle, draftBody, setOpen, setView, setDraftTitle, setDraftBody, resetDraft } = useNotesUi();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,7 +99,7 @@ export function NotesTray() {
   }, [open, user]);
 
   const saveNote = async () => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     if (!draftTitle.trim() && !draftBody.trim()) {
       toast.error("Add a title or body first");
       return;
@@ -108,6 +110,7 @@ export function NotesTray() {
       const { data: t, error: tErr } = await supabase
         .from("tasks")
         .insert({
+          tenant_id: tenantId,
           user_id: user.id,
           next_action: reminderAction,
           next_action_at: new Date(reminderAt).toISOString(),
@@ -122,6 +125,7 @@ export function NotesTray() {
     }
 
     const { error } = await supabase.from("notes").insert({
+      tenant_id: tenantId,
       user_id: user.id,
       title: draftTitle.trim() || null,
       body: draftBody.trim(),
@@ -153,7 +157,7 @@ export function NotesTray() {
   };
 
   const addExistingToCalendar = async (note: Note) => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     const action = note.title?.trim() || note.body.split("\n")[0]?.slice(0, 80) || "Follow up";
     // Default to tomorrow 9am
     const d = new Date();
@@ -163,6 +167,7 @@ export function NotesTray() {
     const { data: t, error } = await supabase
       .from("tasks")
       .insert({
+        tenant_id: tenantId,
         user_id: user.id,
         next_action: action,
         next_action_at: d.toISOString(),

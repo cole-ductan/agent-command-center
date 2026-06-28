@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +53,7 @@ const emptyDay = (d: number): ScheduleRow => ({
 
 function MyWeekPage() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const weekStart = useMemo(() => weekStartFriday(), []);
   const weekEnd = useMemo(() => weekEndThursday(), []);
   const weekKey = fmtWeekKey(weekStart);
@@ -152,9 +154,10 @@ function MyWeekPage() {
   };
 
   const saveSchedule = async () => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     setScheduleSaving(true);
     const rows = schedule.map((r) => ({
+      tenant_id: tenantId,
       user_id: user.id,
       week_start: weekKey,
       day_of_week: r.day_of_week,
@@ -172,13 +175,14 @@ function MyWeekPage() {
   };
 
   const addLog = async () => {
-    if (!user || !newActivity) {
+    if (!user || !tenantId || !newActivity) {
       toast.error("Pick an activity");
       return;
     }
     const def = POINT_ACTIVITIES.find((a) => a.value === newActivity);
     if (!def) return;
     const { error } = await supabase.from("point_logs").insert({
+      tenant_id: tenantId,
       user_id: user.id,
       log_date: newDate,
       activity: newActivity as any,
@@ -200,12 +204,12 @@ function MyWeekPage() {
   };
 
   const saveGoal = async () => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     const g = goal.trim() === "" ? 0 : Number(goal);
     if (Number.isNaN(g) || g < 0) { toast.error("Goal must be a positive number"); return; }
     const { error } = await supabase
       .from("weekly_goals")
-      .upsert({ user_id: user.id, week_start: weekKey, goal: g }, { onConflict: "user_id,week_start" });
+      .upsert({ tenant_id: tenantId, user_id: user.id, week_start: weekKey, goal: g }, { onConflict: "user_id,week_start" });
     if (error) toast.error("Save failed: " + error.message);
     else { toast.success("Goal saved"); loadHistory(); }
   };

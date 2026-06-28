@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,6 +68,7 @@ function appendInterestNote(existing: string | null | undefined, label: string):
 
 function LiveCallWorkspace() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const navigate = useNavigate();
   const search = Route.useSearch();
 
@@ -118,10 +120,11 @@ function LiveCallWorkspace() {
   }, [contact]);
 
   const addContact = useCallback(async () => {
-    if (!event || !user) return;
+    if (!event || !user || !tenantId) return;
     const { data, error } = await supabase
       .from("contacts")
       .insert({
+        tenant_id: tenantId,
         user_id: user.id,
         organization_id: event.organization_id ?? null,
         name: "New contact",
@@ -269,9 +272,10 @@ function LiveCallWorkspace() {
   };
 
   const saveCall = async () => {
-    if (!event || !user) return;
+    if (!event || !user || !tenantId) return;
     const ops: Promise<any>[] = [
       Promise.resolve(supabase.from("calls").insert({
+        tenant_id: tenantId,
         user_id: user.id,
         event_id: event.id,
         call_type: callType,
@@ -283,6 +287,7 @@ function LiveCallWorkspace() {
     ];
     if (followUpAt && followUpAction) {
       ops.push(Promise.resolve(supabase.from("tasks").insert({
+        tenant_id: tenantId,
         user_id: user.id,
         event_id: event.id,
         next_action: followUpAction,
@@ -361,6 +366,7 @@ function LiveCallWorkspace() {
           <div className="mx-auto max-w-2xl p-4 md:p-6">
             <InlineNewLead
               userId={user?.id ?? null}
+              tenantId={tenantId}
               onCreated={(id) => setEventId(id)}
             />
           </div>
@@ -1586,9 +1592,11 @@ function Field({
 
 function InlineNewLead({
   userId,
+  tenantId,
   onCreated,
 }: {
   userId: string | null;
+  tenantId: string | null;
   onCreated: (id: string) => void;
 }) {
   const [orgName, setOrgName] = useState("");
@@ -1609,6 +1617,7 @@ function InlineNewLead({
       toast.error("Still connecting — try again in a second");
       return;
     }
+    if (!tenantId) { toast.error("No active workspace"); return; }
     if (!eventName.trim()) {
       toast.error("Event name is required");
       return;
@@ -1619,7 +1628,7 @@ function InlineNewLead({
       if (orgName.trim()) {
         const { data: org, error: oErr } = await supabase
           .from("organizations")
-          .insert({ user_id: userId, name: orgName.trim() })
+          .insert({ tenant_id: tenantId, user_id: userId, name: orgName.trim() })
           .select().single();
         if (oErr) throw oErr;
         orgId = org.id;
@@ -1630,6 +1639,7 @@ function InlineNewLead({
         const { data: c, error: cErr } = await supabase
           .from("contacts")
           .insert({
+            tenant_id: tenantId,
             user_id: userId,
             organization_id: orgId,
             name: contactName.trim(),
@@ -1644,6 +1654,7 @@ function InlineNewLead({
       const { data: ev, error: eErr } = await supabase
         .from("events")
         .insert({
+          tenant_id: tenantId,
           user_id: userId,
           organization_id: orgId,
           primary_contact_id: contactId,
