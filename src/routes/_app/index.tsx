@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { StageChip } from "@/components/StageChip";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
@@ -28,6 +29,7 @@ type EventLite = { id: string; event_name: string; stage: Stage; updated_at: str
 
 function Dashboard() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [tasks, setTasks] = useState<TaskWithEvent[]>([]);
   const [events, setEvents] = useState<EventLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +62,10 @@ function Dashboard() {
   }, [user]);
 
   const handleSeed = async () => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     setSeeding(true);
     try {
-      const r = await seedSampleData(user.id);
+      const r = await seedSampleData(tenantId, user.id);
       if (r.skipped) toast.info("You already have leads — sample data skipped.");
       else toast.success(`Loaded ${r.count} sample events.`);
       await load();
