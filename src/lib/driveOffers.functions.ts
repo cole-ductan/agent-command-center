@@ -51,6 +51,16 @@ export const mirrorOfferPdfsToStorage = createServerFn({ method: "POST" })
         return { ok: false as const, error: "GOOGLE_DRIVE_API_KEY not configured", inserted: 0, uploaded: 0 };
       }
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active_tenant_id")
+        .eq("id", userId)
+        .maybeSingle();
+      const tenantId = profile?.active_tenant_id;
+      if (!tenantId) {
+        return { ok: false as const, error: "No active workspace", inserted: 0, uploaded: 0 };
+      }
+
       // 1. Backfill expanded_details on offers
       const { data: existingOffers, error: offersErr } = await supabase
         .from("offers")
@@ -77,14 +87,15 @@ export const mirrorOfferPdfsToStorage = createServerFn({ method: "POST" })
         return { ok: false as const, error: `drive list: ${String(e?.message ?? e)}`, inserted: 0, uploaded: 0 };
       }
 
-      // 3. Wipe existing rows for this user
-      const { error: delErr } = await supabase.from("offer_pdfs").delete().eq("user_id", userId);
+      // 3. Wipe existing rows for this tenant
+      const { error: delErr } = await supabase.from("offer_pdfs").delete().eq("tenant_id", tenantId);
       if (delErr) {
         return { ok: false as const, error: `wipe rows: ${delErr.message}`, inserted: 0, uploaded: 0 };
       }
 
       // 4. For each mapped file: download from Drive, upload to Storage, insert row
       type Row = {
+        tenant_id: string;
         user_id: string;
         offer_slug: string;
         name: string;
@@ -132,6 +143,7 @@ export const mirrorOfferPdfsToStorage = createServerFn({ method: "POST" })
             const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(storagePath);
 
             rows.push({
+              tenant_id: tenantId,
               user_id: userId,
               offer_slug: slug,
               name: f.name.replace(/\.pdf$/i, ""),

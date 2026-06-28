@@ -141,16 +141,25 @@ export const sendGmail = createServerFn({ method: "POST" })
     }
     const sent = (await res.json()) as { id: string; threadId: string };
 
-    // Log to emails table
+    // Log to emails table (scope to active tenant)
     try {
-      await supabaseAdmin.from("emails").insert({
-        user_id: context.userId,
-        event_id: data.eventId ?? null,
-        subject: data.subject,
-        body: data.body,
-        sent_status: "sent",
-        template_used: "gmail_api",
-      });
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("active_tenant_id")
+        .eq("id", context.userId)
+        .maybeSingle();
+      const tenantId = profile?.active_tenant_id;
+      if (tenantId) {
+        await supabaseAdmin.from("emails").insert({
+          tenant_id: tenantId,
+          user_id: context.userId,
+          event_id: data.eventId ?? null,
+          subject: data.subject,
+          body: data.body,
+          sent_status: "sent",
+          template_used: "gmail_api",
+        });
+      }
     } catch (e) {
       // Non-fatal: log but still succeed
       console.error("Failed to log sent email:", e);
