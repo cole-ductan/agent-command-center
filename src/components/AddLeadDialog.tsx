@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +35,7 @@ export function AddLeadDialog({
   defaultDate?: string;
 }) {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [openInternal, setOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp! : openInternal;
@@ -66,6 +68,7 @@ export function AddLeadDialog({
 
   const submit = async () => {
     if (!user) return;
+    if (!tenantId) { toast.error("No active workspace"); return; }
     if (!eventName.trim()) {
       toast.error("Event name is required");
       return;
@@ -76,7 +79,7 @@ export function AddLeadDialog({
       if (orgName.trim()) {
         const { data: org, error: oErr } = await supabase
           .from("organizations")
-          .insert({ user_id: user.id, name: orgName.trim() })
+          .insert({ tenant_id: tenantId, user_id: user.id, name: orgName.trim() })
           .select().single();
         if (oErr) throw oErr;
         orgId = org.id;
@@ -87,6 +90,7 @@ export function AddLeadDialog({
         const { data: c, error: cErr } = await supabase
           .from("contacts")
           .insert({
+            tenant_id: tenantId,
             user_id: user.id,
             organization_id: orgId,
             name: contactName.trim(),
@@ -101,6 +105,7 @@ export function AddLeadDialog({
       const { data: ev, error: eErr } = await supabase
         .from("events")
         .insert({
+          tenant_id: tenantId,
           user_id: user.id,
           organization_id: orgId,
           primary_contact_id: contactId,
