@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppPlaybookRouteImport } from './routes/_app/playbook'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
+import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppOffersRouteImport } from './routes/_app/offers'
 import { Route as AppNotesRouteImport } from './routes/_app/notes'
 import { Route as AppMyWeekRouteImport } from './routes/_app/my-week'
@@ -46,6 +47,11 @@ const AppPlaybookRoute = AppPlaybookRouteImport.update({
 const AppPipelineRoute = AppPipelineRouteImport.update({
   id: '/pipeline',
   path: '/pipeline',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOnboardingRoute = AppOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOffersRoute = AppOffersRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/my-week': typeof AppMyWeekRoute
   '/notes': typeof AppNotesRoute
   '/offers': typeof AppOffersRoute
+  '/onboarding': typeof AppOnboardingRoute
   '/pipeline': typeof AppPipelineRoute
   '/playbook': typeof AppPlaybookRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/my-week': typeof AppMyWeekRoute
   '/notes': typeof AppNotesRoute
   '/offers': typeof AppOffersRoute
+  '/onboarding': typeof AppOnboardingRoute
   '/pipeline': typeof AppPipelineRoute
   '/playbook': typeof AppPlaybookRoute
   '/': typeof AppIndexRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/_app/my-week': typeof AppMyWeekRoute
   '/_app/notes': typeof AppNotesRoute
   '/_app/offers': typeof AppOffersRoute
+  '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/playbook': typeof AppPlaybookRoute
   '/_app/': typeof AppIndexRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/my-week'
     | '/notes'
     | '/offers'
+    | '/onboarding'
     | '/pipeline'
     | '/playbook'
     | '/api/public/google/callback'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/my-week'
     | '/notes'
     | '/offers'
+    | '/onboarding'
     | '/pipeline'
     | '/playbook'
     | '/'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/_app/my-week'
     | '/_app/notes'
     | '/_app/offers'
+    | '/_app/onboarding'
     | '/_app/pipeline'
     | '/_app/playbook'
     | '/_app/'
@@ -231,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/pipeline'
       fullPath: '/pipeline'
       preLoaderRoute: typeof AppPipelineRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/onboarding': {
+      id: '/_app/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AppOnboardingRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/offers': {
@@ -308,6 +327,7 @@ interface AppRouteChildren {
   AppMyWeekRoute: typeof AppMyWeekRoute
   AppNotesRoute: typeof AppNotesRoute
   AppOffersRoute: typeof AppOffersRoute
+  AppOnboardingRoute: typeof AppOnboardingRoute
   AppPipelineRoute: typeof AppPipelineRoute
   AppPlaybookRoute: typeof AppPlaybookRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -322,6 +342,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMyWeekRoute: AppMyWeekRoute,
   AppNotesRoute: AppNotesRoute,
   AppOffersRoute: AppOffersRoute,
+  AppOnboardingRoute: AppOnboardingRoute,
   AppPipelineRoute: AppPipelineRoute,
   AppPlaybookRoute: AppPlaybookRoute,
   AppIndexRoute: AppIndexRoute,
