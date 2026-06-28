@@ -775,6 +775,36 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          active_tenant_id: string | null
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          active_tenant_id?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          active_tenant_id?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       script_sections: {
         Row: {
           body: string
@@ -852,6 +882,121 @@ export type Database = {
           },
         ]
       }
+      tenant_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["tenant_role"]
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["tenant_role"]
+          tenant_id: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["tenant_role"]
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["tenant_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["tenant_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["tenant_role"]
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          brand_color: string | null
+          created_at: string
+          created_by: string
+          id: string
+          industry: string | null
+          logo_url: string | null
+          name: string
+          settings: Json
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          brand_color?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          name: string
+          settings?: Json
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          brand_color?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          name?: string
+          settings?: Json
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       weekly_goals: {
         Row: {
           created_at: string
@@ -884,7 +1029,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_tenant_member: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      tenant_role_of: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["tenant_role"]
+      }
     }
     Enums: {
       call_outcome:
@@ -917,6 +1069,7 @@ export type Database = {
         | "event_worked_as_rep"
       task_priority: "low" | "normal" | "high" | "urgent"
       task_status: "pending" | "done" | "snoozed"
+      tenant_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1077,6 +1230,7 @@ export const Constants = {
       ],
       task_priority: ["low", "normal", "high", "urgent"],
       task_status: ["pending", "done", "snoozed"],
+      tenant_role: ["owner", "admin", "member"],
     },
   },
 } as const
