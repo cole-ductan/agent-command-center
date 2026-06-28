@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Save, X, Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export const Route = createFileRoute("/_app/playbook")({
   component: PlaybookPage,
@@ -26,6 +27,7 @@ type TemplateRow = { id: string; slug: string; name: string; subject: string; bo
 
 function PlaybookPage() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [script, setScript] = useState<ScriptRow[]>([]);
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
@@ -51,10 +53,15 @@ function PlaybookPage() {
       toast.error("Not signed in");
       return;
     }
+    if (!tenantId) {
+      toast.error("No active workspace");
+      return;
+    }
     const slug = `custom_${Date.now()}`;
     const { data, error } = await supabase
       .from("email_templates")
       .insert({
+        tenant_id: tenantId,
         user_id: user.id,
         slug,
         name: "New Template",

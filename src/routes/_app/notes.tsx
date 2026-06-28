@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +73,7 @@ const UNCAT = "__uncat__";
 
 function NotesPage() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeFolder, setActiveFolder] = useState<string>(ALL);
@@ -148,7 +150,7 @@ function NotesPage() {
   };
 
   const saveFolder = async () => {
-    if (!user || !folderName.trim()) {
+    if (!user || !tenantId || !folderName.trim()) {
       toast.error("Folder name is required");
       return;
     }
@@ -161,6 +163,7 @@ function NotesPage() {
       toast.success("Folder updated");
     } else {
       const { error } = await supabase.from("note_folders").insert({
+        tenant_id: tenantId,
         user_id: user.id,
         name: folderName.trim(),
         color: folderColor,
@@ -190,12 +193,13 @@ function NotesPage() {
   };
 
   const saveNewNote = async () => {
-    if (!user) return;
+    if (!user || !tenantId) return;
     if (!draftTitle.trim() && !draftBody.trim()) {
       toast.error("Add a title or body first");
       return;
     }
     const { error } = await supabase.from("notes").insert({
+      tenant_id: tenantId,
       user_id: user.id,
       title: draftTitle.trim() || null,
       body: draftBody.trim(),
