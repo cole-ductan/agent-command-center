@@ -27,7 +27,7 @@ const StartSchema = z.object({
   returnTo: z.string().min(1).max(200),
 });
 
-/** Build the Google OAuth consent URL for the current user. */
+/** Build the Google OAuth consent URL for the current user + active workspace. */
 export const startGoogleOAuth = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => StartSchema.parse(input))
@@ -35,8 +35,9 @@ export const startGoogleOAuth = createServerFn({ method: "POST" })
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     if (!clientId) throw new Error("GOOGLE_OAUTH_CLIENT_ID not configured");
 
+    const tenantId = await requireActiveTenant(context.userId);
     const redirectUri = `${data.origin}/api/public/google/callback`;
-    const state = signState({ userId: context.userId, returnTo: data.returnTo });
+    const state = signState({ userId: context.userId, tenantId, returnTo: data.returnTo });
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -52,19 +53,23 @@ export const startGoogleOAuth = createServerFn({ method: "POST" })
     return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` };
   });
 
-/** Get the user's current Google connection status. */
+/** Get the active workspace's current Google connection status. */
 export const getGoogleStatus = createServerFn({ method: "GET" })
   .middleware([withSupabaseSession])
   .handler(async ({ context }) => {
-    // Defensive: middleware guarantees context.userId, but if anything
-    // upstream changes, return a safe "not connected" payload instead of
-    // letting an unhandled Response bubble up to the client.
     if (!context?.userId) {
+      return { connected: false, email: null, scope: null, updatedAt: null };
+    }
+    let tenantId: string;
+    try {
+      tenantId = await requireActiveTenant(context.userId);
+    } catch {
       return { connected: false, email: null, scope: null, updatedAt: null };
     }
     const { data, error } = await supabaseAdmin
       .from("google_tokens")
       .select("google_email, scope, updated_at")
+      .eq("tenant_id", tenantId)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -76,17 +81,20 @@ export const getGoogleStatus = createServerFn({ method: "GET" })
     };
   });
 
-/** Disconnect: delete tokens. */
+/** Disconnect: delete tokens for the active workspace. */
 export const disconnectGoogle = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .handler(async ({ context }) => {
+    const tenantId = await requireActiveTenant(context.userId);
     const { error } = await supabaseAdmin
       .from("google_tokens")
       .delete()
+      .eq("tenant_id", tenantId)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { success: true };
   });
+
 
 const SendSchema = z.object({
   to: z.string().min(3).max(500),
