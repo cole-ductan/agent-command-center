@@ -23,6 +23,12 @@ function AcceptInvitePage() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
 
   useEffect(() => {
+    // Persist the invite token so it survives email confirmation links,
+    // OAuth round-trips, and new tabs. Cleared after a successful accept.
+    try {
+      localStorage.setItem("pending_invite_token", token);
+    } catch {}
+
     let cancelled = false;
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -40,6 +46,9 @@ function AcceptInvitePage() {
         setStatus({ kind: "error", message: error.message });
         return;
       }
+      try {
+        localStorage.removeItem("pending_invite_token");
+      } catch {}
       setStatus({ kind: "accepted" });
       toast.success("Joined workspace");
       // Give router a moment, then send them to the dashboard
