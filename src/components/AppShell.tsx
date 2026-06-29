@@ -108,6 +108,7 @@ function AppShellInner() {
                     Command Center
                   </div>
                 </div>
+                <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
