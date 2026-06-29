@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,12 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/onboarding")({
   component: OnboardingPage,
 });
+
+type TemplateRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  industry: string | null;
+};
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "workspace";
@@ -24,7 +32,22 @@ function OnboardingPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
+  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("command_center_templates")
+        .select("id, slug, name, description, industry")
+        .order("slug");
+      const rows = (data ?? []) as TemplateRow[];
+      setTemplates(rows);
+      const blank = rows.find((r) => r.slug === "blank");
+      if (blank) setSelectedTemplate(blank.id);
+    })();
+  }, []);
 
   const create = async () => {
     if (!user) return;
@@ -37,7 +60,6 @@ function OnboardingPage() {
       const baseSlug = slugify(name);
       let slug = baseSlug;
       let attempt = 0;
-      // ensure unique slug
       while (true) {
         const { data: existing } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
         if (!existing) break;
@@ -58,6 +80,18 @@ function OnboardingPage() {
       if (mErr) throw mErr;
 
       await supabase.from("profiles").update({ active_tenant_id: tenant.id }).eq("id", user.id);
+
+      // Apply chosen template (skip if "blank")
+      const tpl = templates.find((t) => t.id === selectedTemplate);
+      if (tpl && tpl.slug !== "blank") {
+        const { error: tErr } = await supabase.rpc("apply_template", {
+          p_tenant_id: tenant.id,
+          p_template_id: tpl.id,
+        });
+        if (tErr) console.warn("apply_template failed", tErr);
+        else toast.success(`Loaded "${tpl.name}" starter content`);
+      }
+
       await refresh();
       toast.success(`Workspace "${tenant.name}" created`);
       navigate({ to: "/" });
@@ -69,11 +103,12 @@ function OnboardingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 md:px-8 space-y-8">
+    <div className="mx-auto max-w-3xl px-4 py-12 md:px-8 space-y-8">
       <header>
         <h1 className="font-display text-3xl font-semibold">Welcome — let's set up your command center</h1>
         <p className="mt-2 text-muted-foreground">
-          A workspace is your company's command center. Each workspace gets its own scripts, offers, emails, training docs, and CRM.
+          A workspace is your company's command center. Each workspace gets its own scripts, offers,
+          emails, training docs, and CRM.
         </p>
       </header>
 
@@ -102,14 +137,48 @@ function OnboardingPage() {
               placeholder="SaaS sales, real estate, fundraising…"
             />
           </div>
-          <Button onClick={create} disabled={creating} className="w-full">
+
+          <div className="space-y-2 pt-2">
+            <Label>Starter template</Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {templates.map((t) => {
+                const active = selectedTemplate === t.id;
+                return (
+                  <button
+                    type="button"
+                    key={t.id}
+                    onClick={() => setSelectedTemplate(t.id)}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      active ? "border-primary bg-primary/5" : "hover:bg-secondary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{t.name}</div>
+                      {active && <Check className="h-4 w-4 text-primary" />}
+                    </div>
+                    {t.description && (
+                      <div className="mt-1 text-xs text-muted-foreground line-clamp-3">
+                        {t.description}
+                      </div>
+                    )}
+                    {t.industry && (
+                      <div className="mt-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {t.industry}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You can apply additional starter templates anytime from <strong>Settings → Templates</strong>.
+            </p>
+          </div>
+
+          <Button onClick={create} disabled={creating || !selectedTemplate} className="w-full">
             {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Create workspace
           </Button>
-          <p className="text-xs text-muted-foreground">
-            You'll start with a blank command center. Starter templates (including the Dixon Golf
-            sample) will be available from <strong>Settings → Templates</strong> once setup wraps.
-          </p>
         </CardContent>
       </Card>
 

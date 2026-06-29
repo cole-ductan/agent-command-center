@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppPlaybookRouteImport } from './routes/_app/playbook'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
@@ -23,6 +24,12 @@ import { Route as AppFollowUpsRouteImport } from './routes/_app/follow-ups'
 import { Route as AppFlyersRouteImport } from './routes/_app/flyers'
 import { Route as AppCallRouteImport } from './routes/_app/call'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings.index'
+import { Route as AppSettingsWorkspaceRouteImport } from './routes/_app/settings.workspace'
+import { Route as AppSettingsTrainingDocsRouteImport } from './routes/_app/settings.training-docs'
+import { Route as AppSettingsTemplatesRouteImport } from './routes/_app/settings.templates'
+import { Route as AppSettingsObjectionsRouteImport } from './routes/_app/settings.objections'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings.members'
 import { Route as ApiPublicGoogleCallbackRouteImport } from './routes/api/public/google.callback'
 
 const AuthRoute = AuthRouteImport.update({
@@ -37,6 +44,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPlaybookRoute = AppPlaybookRouteImport.update({
@@ -94,6 +106,36 @@ const AppCalendarRoute = AppCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsWorkspaceRoute = AppSettingsWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsTrainingDocsRoute = AppSettingsTrainingDocsRouteImport.update({
+  id: '/training-docs',
+  path: '/training-docs',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsTemplatesRoute = AppSettingsTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsObjectionsRoute = AppSettingsObjectionsRouteImport.update({
+  id: '/objections',
+  path: '/objections',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const ApiPublicGoogleCallbackRoute = ApiPublicGoogleCallbackRouteImport.update({
   id: '/api/public/google/callback',
   path: '/api/public/google/callback',
@@ -114,6 +156,13 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AppOnboardingRoute
   '/pipeline': typeof AppPipelineRoute
   '/playbook': typeof AppPlaybookRoute
+  '/settings': typeof AppSettingsRouteWithChildren
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/objections': typeof AppSettingsObjectionsRoute
+  '/settings/templates': typeof AppSettingsTemplatesRoute
+  '/settings/training-docs': typeof AppSettingsTrainingDocsRoute
+  '/settings/workspace': typeof AppSettingsWorkspaceRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -130,6 +179,12 @@ export interface FileRoutesByTo {
   '/pipeline': typeof AppPipelineRoute
   '/playbook': typeof AppPlaybookRoute
   '/': typeof AppIndexRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/objections': typeof AppSettingsObjectionsRoute
+  '/settings/templates': typeof AppSettingsTemplatesRoute
+  '/settings/training-docs': typeof AppSettingsTrainingDocsRoute
+  '/settings/workspace': typeof AppSettingsWorkspaceRoute
+  '/settings': typeof AppSettingsIndexRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
 }
 export interface FileRoutesById {
@@ -147,7 +202,14 @@ export interface FileRoutesById {
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/playbook': typeof AppPlaybookRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/objections': typeof AppSettingsObjectionsRoute
+  '/_app/settings/templates': typeof AppSettingsTemplatesRoute
+  '/_app/settings/training-docs': typeof AppSettingsTrainingDocsRoute
+  '/_app/settings/workspace': typeof AppSettingsWorkspaceRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
   '/api/public/google/callback': typeof ApiPublicGoogleCallbackRoute
 }
 export interface FileRouteTypes {
@@ -166,6 +228,13 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/pipeline'
     | '/playbook'
+    | '/settings'
+    | '/settings/members'
+    | '/settings/objections'
+    | '/settings/templates'
+    | '/settings/training-docs'
+    | '/settings/workspace'
+    | '/settings/'
     | '/api/public/google/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -182,6 +251,12 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/playbook'
     | '/'
+    | '/settings/members'
+    | '/settings/objections'
+    | '/settings/templates'
+    | '/settings/training-docs'
+    | '/settings/workspace'
+    | '/settings'
     | '/api/public/google/callback'
   id:
     | '__root__'
@@ -198,7 +273,14 @@ export interface FileRouteTypes {
     | '/_app/onboarding'
     | '/_app/pipeline'
     | '/_app/playbook'
+    | '/_app/settings'
     | '/_app/'
+    | '/_app/settings/members'
+    | '/_app/settings/objections'
+    | '/_app/settings/templates'
+    | '/_app/settings/training-docs'
+    | '/_app/settings/workspace'
+    | '/_app/settings/'
     | '/api/public/google/callback'
   fileRoutesById: FileRoutesById
 }
@@ -229,6 +311,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/playbook': {
@@ -308,6 +397,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCalendarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/workspace': {
+      id: '/_app/settings/workspace'
+      path: '/workspace'
+      fullPath: '/settings/workspace'
+      preLoaderRoute: typeof AppSettingsWorkspaceRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/training-docs': {
+      id: '/_app/settings/training-docs'
+      path: '/training-docs'
+      fullPath: '/settings/training-docs'
+      preLoaderRoute: typeof AppSettingsTrainingDocsRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/templates': {
+      id: '/_app/settings/templates'
+      path: '/templates'
+      fullPath: '/settings/templates'
+      preLoaderRoute: typeof AppSettingsTemplatesRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/objections': {
+      id: '/_app/settings/objections'
+      path: '/objections'
+      fullPath: '/settings/objections'
+      preLoaderRoute: typeof AppSettingsObjectionsRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/members': {
+      id: '/_app/settings/members'
+      path: '/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/api/public/google/callback': {
       id: '/api/public/google/callback'
       path: '/api/public/google/callback'
@@ -317,6 +448,28 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AppSettingsRouteChildren {
+  AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsObjectionsRoute: typeof AppSettingsObjectionsRoute
+  AppSettingsTemplatesRoute: typeof AppSettingsTemplatesRoute
+  AppSettingsTrainingDocsRoute: typeof AppSettingsTrainingDocsRoute
+  AppSettingsWorkspaceRoute: typeof AppSettingsWorkspaceRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsObjectionsRoute: AppSettingsObjectionsRoute,
+  AppSettingsTemplatesRoute: AppSettingsTemplatesRoute,
+  AppSettingsTrainingDocsRoute: AppSettingsTrainingDocsRoute,
+  AppSettingsWorkspaceRoute: AppSettingsWorkspaceRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
 
 interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
@@ -330,6 +483,7 @@ interface AppRouteChildren {
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPipelineRoute: typeof AppPipelineRoute
   AppPlaybookRoute: typeof AppPlaybookRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -345,6 +499,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOnboardingRoute: AppOnboardingRoute,
   AppPipelineRoute: AppPipelineRoute,
   AppPlaybookRoute: AppPlaybookRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -358,12 +513,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

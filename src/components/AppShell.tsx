@@ -124,8 +124,8 @@ function AppShellInner() {
               <DropdownMenuItem onSelect={() => navigate({ to: "/onboarding" })}>
                 <Plus className="h-4 w-4" /> New workspace
               </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <Settings className="h-4 w-4" /> Workspace settings (soon)
+              <DropdownMenuItem onSelect={() => navigate({ to: "/settings" })}>
+                <Settings className="h-4 w-4" /> Workspace settings
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
