@@ -82,10 +82,16 @@ export function NotesTray() {
 
   const load = async () => {
     if (!user) return;
+    if (!tenantId) {
+      setNotes([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const { data } = await supabase
       .from("notes")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(200);
@@ -96,7 +102,7 @@ export function NotesTray() {
   useEffect(() => {
     if (open && user) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, user]);
+  }, [open, user, tenantId]);
 
   const saveNote = async () => {
     if (!user || !tenantId) return;
