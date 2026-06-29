@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Mail, FileText, Download, Package, Search } from "lucide-react";
+import { Eye, Mail, FileText, Download, Package, Search, ExternalLink } from "lucide-react";
 import { usePendingTray } from "@/lib/pendingTrayStore";
 import { OFFER_EXPANDED } from "@/lib/offerExpanded";
 import { toast } from "sonner";
@@ -66,7 +66,8 @@ type OfferPdf = {
 };
 
 function OffersPage() {
-  const { tenantId } = useActiveTenant();
+  const { tenantId, tenant } = useActiveTenant();
+  const catalogUrl = ((tenant?.settings as any)?.product_catalog_url as string | undefined) ?? "";
   const [offers, setOffers] = useState<Offer[]>([]);
   const [pdfs, setPdfs] = useState<OfferPdf[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +134,13 @@ function OffersPage() {
             Tap any offer to expand. Use &ldquo;Add to email&rdquo; to drop items into your pending email tray.
           </p>
         </div>
+        {catalogUrl && (
+          <Button asChild size="sm" variant="outline">
+            <a href={catalogUrl} target="_blank" rel="noreferrer">
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Product Catalog
+            </a>
+          </Button>
+        )}
       </header>
 
       <div className="relative">

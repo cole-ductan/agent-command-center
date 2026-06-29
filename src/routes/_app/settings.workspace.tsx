@@ -24,6 +24,7 @@ function WorkspaceSettingsPage() {
   const [industry, setIndustry] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [brandColor, setBrandColor] = useState("");
+  const [productCatalogUrl, setProductCatalogUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmName, setConfirmName] = useState("");
@@ -34,6 +35,7 @@ function WorkspaceSettingsPage() {
       setIndustry(tenant.industry ?? "");
       setLogoUrl(tenant.logo_url ?? "");
       setBrandColor(tenant.brand_color ?? "");
+      setProductCatalogUrl(((tenant.settings as any)?.product_catalog_url as string | undefined) ?? "");
     }
   }, [tenant]);
 
@@ -41,8 +43,17 @@ function WorkspaceSettingsPage() {
 
   const save = async () => {
     if (!tenant) return;
+    const url = productCatalogUrl.trim();
+    if (url && !/^https?:\/\//i.test(url)) {
+      toast.error("Product Catalog URL must start with http:// or https://");
+      return;
+    }
     setSaving(true);
     try {
+      const mergedSettings = {
+        ...(tenant.settings ?? {}),
+        product_catalog_url: url || null,
+      };
       const { error } = await supabase
         .from("tenants")
         .update({
@@ -50,6 +61,7 @@ function WorkspaceSettingsPage() {
           industry: industry.trim() || null,
           logo_url: logoUrl.trim() || null,
           brand_color: brandColor.trim() || null,
+          settings: mergedSettings,
         })
         .eq("id", tenant.id);
       if (error) throw error;
@@ -113,6 +125,20 @@ function WorkspaceSettingsPage() {
                 />
               )}
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="catalog">Product Catalog URL</Label>
+            <Input
+              id="catalog"
+              type="url"
+              value={productCatalogUrl}
+              onChange={(e) => setProductCatalogUrl(e.target.value)}
+              placeholder="https://yourcompany.com/catalog"
+              disabled={!canEdit}
+            />
+            <p className="text-xs text-muted-foreground">
+              When set, a &ldquo;Product Catalog&rdquo; button appears on the Offers &amp; Products page.
+            </p>
           </div>
           <Button onClick={save} disabled={!canEdit || saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

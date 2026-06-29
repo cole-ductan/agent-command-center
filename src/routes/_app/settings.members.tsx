@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Trash2, Mail } from "lucide-react";
+import { Loader2, Trash2, Mail, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
 
 export const Route = createFileRoute("/_app/settings/members")({
   component: MembersPage,
@@ -72,26 +75,50 @@ function MembersPage() {
     load();
   }, [load]);
 
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const sendInvite = async () => {
-    if (!tenant || !inviteEmail.trim()) return;
+    if (!tenant) return;
+    const parsed = emailSchema.safeParse(inviteEmail);
+    if (!parsed.success) {
+      setEmailError(parsed.error.issues[0]?.message ?? "Invalid email");
+      return;
+    }
+    setEmailError(null);
+    const cleanEmail = parsed.data;
     const me = (await supabase.auth.getUser()).data.user;
     if (!me) return;
     setInviting(true);
     try {
       const { error } = await supabase.from("tenant_invites").insert({
         tenant_id: tenant.id,
-        email: inviteEmail.trim().toLowerCase(),
+        email: cleanEmail,
         role: inviteRole,
         invited_by: me.id,
       });
       if (error) throw error;
-      toast.success(`Invite created for ${inviteEmail}`);
+      toast.success(`Invite created for ${cleanEmail}`);
       setInviteEmail("");
       load();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to invite");
     } finally {
       setInviting(false);
+    }
+  };
+
+  const inviteUrl = (token: string) =>
+    typeof window === "undefined" ? `/invite/${token}` : `${window.location.origin}/invite/${token}`;
+
+  const copyInviteLink = async (invite: Invite) => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(invite.token));
+      setCopiedId(invite.id);
+      toast.success("Invite link copied");
+      setTimeout(() => setCopiedId((c) => (c === invite.id ? null : c)), 1500);
+    } catch {
+      toast.error("Could not copy — link: " + inviteUrl(invite.token));
     }
   };
 
@@ -140,7 +167,8 @@ function MembersPage() {
           <CardHeader>
             <CardTitle>Invite teammate</CardTitle>
             <CardDescription>
-              Creates an invite token. (Email delivery is not wired up yet — share the invite link manually for now.)
+              Creates an invite token. Email delivery is not wired up yet — use &ldquo;Copy link&rdquo; in
+              the Pending invites list below and send it to the teammate manually.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-[1fr_140px_auto] md:items-end">
@@ -150,9 +178,15 @@ function MembersPage() {
                 id="email"
                 type="email"
                 value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value);
+                  if (emailError) setEmailError(null);
+                }}
                 placeholder="person@company.com"
+                aria-invalid={!!emailError}
+                className={emailError ? "border-destructive" : ""}
               />
+              {emailError && <p className="text-xs text-destructive">{emailError}</p>}
             </div>
             <div className="grid gap-1.5">
               <Label>Role</Label>
@@ -222,11 +256,23 @@ function MembersPage() {
                     {i.role} · expires {new Date(i.expires_at).toLocaleDateString()}
                   </div>
                 </div>
-                {canManage && (
-                  <Button size="icon" variant="ghost" onClick={() => removeInvite(i.id)}>
-                    <Trash2 className="h-4 w-4" />
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5"
+                    onClick={() => copyInviteLink(i)}
+                    title="Copy invite link"
+                  >
+                    {copiedId === i.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedId === i.id ? "Copied" : "Copy link"}
                   </Button>
-                )}
+                  {canManage && (
+                    <Button size="icon" variant="ghost" onClick={() => removeInvite(i.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>
