@@ -81,9 +81,6 @@ function MembersPage() {
         role: inviteRole,
         invited_by: me.id,
       });
-        email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole,
-      });
       if (error) throw error;
       toast.success(`Invite created for ${inviteEmail}`);
       setInviteEmail("");
