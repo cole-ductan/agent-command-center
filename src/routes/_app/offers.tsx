@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Mail, FileText, Download, Package, Search } from "lucide-react";
+import { Eye, Mail, FileText, Download, Package, Search, ExternalLink } from "lucide-react";
 import { usePendingTray } from "@/lib/pendingTrayStore";
 import { OFFER_EXPANDED } from "@/lib/offerExpanded";
 import { toast } from "sonner";
