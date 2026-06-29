@@ -206,34 +206,32 @@ export function PendingEmailTray() {
         </div>
       </ScrollArea>
 
-      <div className="border-t p-3 flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            clear();
-            setOpen(false);
-          }}
-        >
-          <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Discard
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={openInGmailWeb}
-          disabled={!subject && !body}
-          title="Open in Gmail tab to review before sending"
-        >
-          <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open
-        </Button>
-        <Button size="sm" className="flex-1" onClick={sendViaApi} disabled={sending || (!subject && !body)}>
-          {sending ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Send className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          {sending ? "Sending…" : "Send"}
-        </Button>
+      <div className="border-t p-3 flex flex-col gap-2">
+        <p className="text-[10px] text-muted-foreground">
+          In-app sending is deferred — Gmail scopes are not currently requested. Use "Open in Gmail"
+          to review and send from your inbox.
+        </p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              clear();
+              setOpen(false);
+            }}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Discard
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={openInGmailWeb}
+            disabled={!subject && !body}
+            title="Open in Gmail to review and send"
+          >
+            <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open in Gmail
+          </Button>
+        </div>
       </div>
     </div>
   );
