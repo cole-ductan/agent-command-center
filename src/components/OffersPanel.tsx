@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, Mail, FileText, Download, ChevronRight } from "lucide-react";
 import { usePendingTray } from "@/lib/pendingTrayStore";
 import { OFFER_EXPANDED } from "@/lib/offerExpanded";
-import { LOCAL_OFFER_PDFS, type LocalOfferPdf } from "@/lib/localOfferPdfs";
 import { toast } from "sonner";
 
 /**
@@ -42,25 +42,56 @@ type Offer = {
   expanded_details: string | null;
 };
 
+export type OfferPdf = {
+  id: string;
+  name: string;
+  /** URL the iframe / download link uses (public_url or drive_url). */
+  url: string;
+  offer_slug: string | null;
+};
+
 interface Props {
   /** "full" = expanded cards for /offers page. "rail" = compact for live-call rail. */
   variant?: "full" | "rail";
 }
 
 export function OffersPanel({ variant = "full" }: Props) {
+  const { tenantId } = useActiveTenant();
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [pdfs, setPdfs] = useState<OfferPdf[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewing, setPreviewing] = useState<LocalOfferPdf | null>(null);
+  const [previewing, setPreviewing] = useState<OfferPdf | null>(null);
   const add = usePendingTray((s) => s.add);
 
   useEffect(() => {
     (async () => {
+      if (!tenantId) {
+        setOffers([]);
+        setPdfs([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      const { data } = await supabase.from("offers").select("*").order("sort_order");
-      setOffers((data ?? []) as any);
+      const [offersRes, pdfsRes] = await Promise.all([
+        supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order"),
+        supabase
+          .from("offer_pdfs")
+          .select("id, name, offer_slug, public_url, drive_url, storage_path")
+          .eq("tenant_id", tenantId)
+          .order("sort_order"),
+      ]);
+      setOffers((offersRes.data ?? []) as any);
+      setPdfs(
+        (pdfsRes.data ?? []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          offer_slug: p.offer_slug,
+          url: p.public_url || p.drive_url || "",
+        })),
+      );
       setLoading(false);
     })();
-  }, []);
+  }, [tenantId]);
 
   if (loading) {
     return <div className="p-4 text-sm text-muted-foreground">Loading offers…</div>;
@@ -68,11 +99,21 @@ export function OffersPanel({ variant = "full" }: Props) {
 
   const isRail = variant === "rail";
 
+  const pdfsFor = (slug: string) => pdfs.filter((p) => p.offer_slug === slug);
+
+  if (offers.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        No offers yet in this workspace. Add them in <span className="font-medium">Playbook → Offers</span>.
+      </div>
+    );
+  }
+
   return (
     <div className={isRail ? "space-y-2" : "space-y-4"}>
       <div className={isRail ? "space-y-1.5" : "grid gap-4 md:grid-cols-2"}>
         {offers.map((o) => {
-          const offerPdfs = LOCAL_OFFER_PDFS[o.slug] ?? [];
+          const offerPdfs = pdfsFor(o.slug);
           const detail = o.expanded_details || OFFER_EXPANDED[o.slug] || o.details || "";
           if (isRail) {
             return (
@@ -87,8 +128,7 @@ export function OffersPanel({ variant = "full" }: Props) {
                   toast.success(`Added "${o.name}" to email tray`);
                 }}
                 onAddPdf={(p) => {
-                  const absoluteUrl = typeof window !== "undefined" ? new URL(p.file, window.location.origin).toString() : p.file;
-                  add({ kind: "pdf", id: p.id, name: p.name, driveFileId: "", driveUrl: absoluteUrl });
+                  add({ kind: "pdf", id: p.id, name: p.name, driveFileId: "", driveUrl: p.url });
                   toast.success(`Added "${p.name}" to email tray`);
                 }}
               />
@@ -100,9 +140,7 @@ export function OffersPanel({ variant = "full" }: Props) {
               className="rounded-xl border bg-card p-5 shadow-[var(--shadow-card)]"
             >
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="font-display text-lg font-semibold">
-                  {o.name}
-                </h3>
+                <h3 className="font-display text-lg font-semibold">{o.name}</h3>
                 <span className="whitespace-nowrap text-[10px] font-mono text-muted-foreground">{o.cost}</span>
               </div>
               <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{o.type}</div>
@@ -110,7 +148,6 @@ export function OffersPanel({ variant = "full" }: Props) {
                 <p className="mt-1 text-[11px] italic text-muted-foreground">When: {o.when_to_introduce}</p>
               )}
 
-              {/* Mobile: collapsed by default */}
               <details className="mt-3 md:hidden text-sm">
                 <summary className="cursor-pointer font-medium text-primary">Show full pitch details</summary>
                 <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
@@ -141,14 +178,12 @@ export function OffersPanel({ variant = "full" }: Props) {
                   {offerPdfs.map((p) => (
                     <div key={p.id} className="flex items-center gap-2 rounded-md border bg-secondary/30 px-2 py-1.5">
                       <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span className="flex-1 truncate text-xs" title={p.name}>
-                        {p.name}
-                      </span>
+                      <span className="flex-1 truncate text-xs" title={p.name}>{p.name}</span>
                       <button onClick={() => setPreviewing(p)} className="rounded p-1 hover:bg-background" title="Preview">
                         <Eye className="h-3.5 w-3.5" />
                       </button>
                       <a
-                        href={p.file}
+                        href={p.url}
                         target="_blank"
                         rel="noreferrer"
                         download
@@ -159,14 +194,7 @@ export function OffersPanel({ variant = "full" }: Props) {
                       </a>
                       <button
                         onClick={() => {
-                          const absoluteUrl = typeof window !== "undefined" ? new URL(p.file, window.location.origin).toString() : p.file;
-                          add({
-                            kind: "pdf",
-                            id: p.id,
-                            name: p.name,
-                            driveFileId: "",
-                            driveUrl: absoluteUrl,
-                          });
+                          add({ kind: "pdf", id: p.id, name: p.name, driveFileId: "", driveUrl: p.url });
                           toast.success(`Added "${p.name}" to email tray`);
                         }}
                         className="rounded p-1 hover:bg-background"
@@ -188,11 +216,11 @@ export function OffersPanel({ variant = "full" }: Props) {
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="text-sm font-medium">{previewing?.name}</DialogTitle>
           </DialogHeader>
-          {previewing && <iframe src={previewing.file} className="flex-1 w-full" title={previewing.name} />}
+          {previewing && <iframe src={previewing.url} className="flex-1 w-full" title={previewing.name} />}
           <div className="flex justify-end gap-2 border-t p-3">
             {previewing && (
               <Button size="sm" variant="outline" asChild>
-                <a href={previewing.file} target="_blank" rel="noreferrer" download>
+                <a href={previewing.url} target="_blank" rel="noreferrer" download>
                   <Download className="mr-1.5 h-3.5 w-3.5" /> Download
                 </a>
               </Button>
@@ -201,14 +229,7 @@ export function OffersPanel({ variant = "full" }: Props) {
               size="sm"
               onClick={() => {
                 if (!previewing) return;
-                const absoluteUrl = typeof window !== "undefined" ? new URL(previewing.file, window.location.origin).toString() : previewing.file;
-                add({
-                  kind: "pdf",
-                  id: previewing.id,
-                  name: previewing.name,
-                  driveFileId: "",
-                  driveUrl: absoluteUrl,
-                });
+                add({ kind: "pdf", id: previewing.id, name: previewing.name, driveFileId: "", driveUrl: previewing.url });
                 toast.success("Added to email tray");
                 setPreviewing(null);
               }}
@@ -232,15 +253,14 @@ function RailOfferCard({
 }: {
   offer: Offer;
   detail: string;
-  offerPdfs: LocalOfferPdf[];
-  onPreview: (p: LocalOfferPdf) => void;
+  offerPdfs: OfferPdf[];
+  onPreview: (p: OfferPdf) => void;
   onAddOffer: () => void;
-  onAddPdf: (p: LocalOfferPdf) => void;
+  onAddPdf: (p: OfferPdf) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <article className="rounded-lg border bg-card min-w-0 overflow-hidden">
-      {/* Header row — always visible */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -272,14 +292,12 @@ function RailOfferCard({
         </span>
       </button>
 
-      {/* When-to-introduce — always visible, compact */}
       {offer.when_to_introduce && (
         <div className="px-2.5 pb-1.5 text-[10px] italic text-muted-foreground truncate min-w-0">
           When: {offer.when_to_introduce}
         </div>
       )}
 
-      {/* PDF chips — always visible, single compact row */}
       {offerPdfs.length > 0 && (
         <div className="px-2.5 pb-2 flex flex-wrap gap-1 min-w-0">
           {offerPdfs.map((p) => (
@@ -294,7 +312,7 @@ function RailOfferCard({
                 <Eye className="h-3 w-3" />
               </button>
               <a
-                href={p.file}
+                href={p.url}
                 target="_blank"
                 rel="noreferrer"
                 download
@@ -311,7 +329,6 @@ function RailOfferCard({
         </div>
       )}
 
-      {/* Expanded details */}
       {open && detail && (
         <div className="border-t px-2.5 py-2 min-w-0">
           <pre className="whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-foreground/85">
