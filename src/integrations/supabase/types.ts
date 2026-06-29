@@ -121,6 +121,42 @@ export type Database = {
           },
         ]
       }
+      command_center_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          industry: string | null
+          is_official: boolean
+          name: string
+          preview_image_url: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          is_official?: boolean
+          name: string
+          preview_image_url?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          is_official?: boolean
+          name?: string
+          preview_image_url?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           created_at: string
@@ -708,6 +744,53 @@ export type Database = {
           },
         ]
       }
+      objections: {
+        Row: {
+          created_at: string
+          id: string
+          response: string
+          slug: string
+          sort_order: number
+          tenant_id: string
+          tip: string | null
+          trigger: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          response: string
+          slug: string
+          sort_order?: number
+          tenant_id: string
+          tip?: string | null
+          trigger: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          response?: string
+          slug?: string
+          sort_order?: number
+          tenant_id?: string
+          tip?: string | null
+          trigger?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offer_pdfs: {
         Row: {
           created_at: string
@@ -1048,6 +1131,32 @@ export type Database = {
           },
         ]
       }
+      template_payloads: {
+        Row: {
+          content: Json
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_payloads_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: true
+            referencedRelation: "command_center_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_invites: {
         Row: {
           accepted_at: string | null
@@ -1163,6 +1272,62 @@ export type Database = {
         }
         Relationships: []
       }
+      training_documents: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          external_url: string | null
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          sort_order: number
+          storage_path: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          sort_order?: number
+          storage_path?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          sort_order?: number
+          storage_path?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_goals: {
         Row: {
           created_at: string
@@ -1206,6 +1371,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_template: {
+        Args: { p_template_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
