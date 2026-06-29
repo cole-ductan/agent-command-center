@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Phone, LayoutDashboard, KanbanSquare, CalendarClock, BookOpen, LogOut, Flag,
   CalendarRange, Package, Loader2, FileText, StickyNote, Mail, Plus, UserPlus,
-  CalendarPlus, Users, Building2, Settings, Check,
+  CalendarPlus, Users, Building2, Settings, Check, ChevronsUpDown,
 } from "lucide-react";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
 import { PendingEmailTray } from "@/components/PendingEmailTray";
