@@ -60,29 +60,8 @@ export function PendingEmailTray() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const sendViaApi = async () => {
-    if (!to.trim() || !subject.trim() || !body.trim()) {
-      toast.error("Please fill in To, Subject, and Body before sending.");
-      return;
-    }
-    setSending(true);
-    try {
-      await sendGmailFn({ data: { to: to.trim(), subject: subject.trim(), body } });
-      toast.success(`Email sent to ${to.trim()}`);
-      clear();
-      setTo("");
-      setOpen(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to send email";
-      if (msg.includes("not connected")) {
-        toast.error("Connect your Google account first (top-right of the header).");
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setSending(false);
-    }
-  };
+
+
 
   if (!open && count === 0) return null;
 
