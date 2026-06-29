@@ -46,14 +46,17 @@ function MembersPage() {
     setLoading(true);
     const { data: rows } = await supabase
       .from("tenant_members")
-      .select("user_id, role, profiles:profiles!tenant_members_user_id_fkey(email, full_name)")
+      .select("user_id, role")
       .eq("tenant_id", tenant.id);
-    const ms: Member[] = (rows ?? []).map((r: any) => ({
-      user_id: r.user_id,
-      role: r.role,
-      email: r.profiles?.email ?? null,
-      full_name: r.profiles?.full_name ?? null,
-    }));
+    const userIds = (rows ?? []).map((r: any) => r.user_id);
+    const { data: profs } = userIds.length
+      ? await supabase.from("profiles").select("id, email, full_name").in("id", userIds)
+      : { data: [] as any[] };
+    const byId = new Map((profs ?? []).map((p: any) => [p.id, p]));
+    const ms: Member[] = (rows ?? []).map((r: any) => {
+      const p = byId.get(r.user_id);
+      return { user_id: r.user_id, role: r.role, email: p?.email ?? null, full_name: p?.full_name ?? null };
+    });
     setMembers(ms);
 
     const { data: inv } = await supabase
