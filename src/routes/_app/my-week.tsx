@@ -72,15 +72,34 @@ function MyWeekPage() {
   // Load this week's schedule, logs, goal
   const load = useCallback(async () => {
     if (!user) return;
+    if (!tenantId) {
+      setSchedule(Array.from({ length: 7 }, (_, i) => emptyDay(i)));
+      setLogs([]);
+      setGoal("");
+      return;
+    }
     const [sched, log, goalRow] = await Promise.all([
-      supabase.from("cm_schedules").select("*").eq("week_start", weekKey),
+      supabase
+        .from("cm_schedules")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", user.id)
+        .eq("week_start", weekKey),
       supabase
         .from("point_logs")
         .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", user.id)
         .gte("log_date", weekKey)
         .lte("log_date", fmtWeekKey(weekEnd))
         .order("log_date", { ascending: false }),
-      supabase.from("weekly_goals").select("*").eq("week_start", weekKey).maybeSingle(),
+      supabase
+        .from("weekly_goals")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", user.id)
+        .eq("week_start", weekKey)
+        .maybeSingle(),
     ]);
 
     const next = Array.from({ length: 7 }, (_, i) => emptyDay(i));
@@ -97,21 +116,38 @@ function MyWeekPage() {
     setSchedule(next);
     setLogs((log.data ?? []) as PointLog[]);
     setGoal(goalRow.data?.goal != null ? String(goalRow.data.goal) : "");
-  }, [user, weekKey, weekEnd]);
+  }, [user, tenantId, weekKey, weekEnd]);
 
   // Load 8-week history
   const loadHistory = useCallback(async () => {
     if (!user) return;
+    if (!tenantId) {
+      setHistory([]);
+      return;
+    }
     const weeks = lastNWeekStarts(8);
     const start = fmtWeekKey(weeks[weeks.length - 1]);
     const end = fmtWeekKey(addDays(weeks[0], 6));
 
     const [goalsRes, logsRes, eventsRes] = await Promise.all([
-      supabase.from("weekly_goals").select("week_start,goal").gte("week_start", start).lte("week_start", end),
-      supabase.from("point_logs").select("log_date,points").gte("log_date", start).lte("log_date", end),
+      supabase
+        .from("weekly_goals")
+        .select("week_start,goal")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", user.id)
+        .gte("week_start", start)
+        .lte("week_start", end),
+      supabase
+        .from("point_logs")
+        .select("log_date,points")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", user.id)
+        .gte("log_date", start)
+        .lte("log_date", end),
       supabase
         .from("events")
         .select("updated_at,stage")
+        .eq("tenant_id", tenantId)
         .eq("stage", "closed_won")
         .gte("updated_at", start),
     ]);
@@ -137,7 +173,7 @@ function MyWeekPage() {
       };
     });
     setHistory(rows);
-  }, [user]);
+  }, [user, tenantId]);
 
   useEffect(() => { load(); loadHistory(); }, [load, loadHistory]);
 
