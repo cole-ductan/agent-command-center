@@ -126,6 +126,20 @@ function WorkspaceSettingsPage() {
               )}
             </div>
           </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="catalog">Product Catalog URL</Label>
+            <Input
+              id="catalog"
+              type="url"
+              value={productCatalogUrl}
+              onChange={(e) => setProductCatalogUrl(e.target.value)}
+              placeholder="https://yourcompany.com/catalog"
+              disabled={!canEdit}
+            />
+            <p className="text-xs text-muted-foreground">
+              When set, a &ldquo;Product Catalog&rdquo; button appears on the Offers &amp; Products page.
+            </p>
+          </div>
           <Button onClick={save} disabled={!canEdit || saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save changes
