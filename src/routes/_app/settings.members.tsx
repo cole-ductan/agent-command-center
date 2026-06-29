@@ -177,9 +177,15 @@ function MembersPage() {
                 id="email"
                 type="email"
                 value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value);
+                  if (emailError) setEmailError(null);
+                }}
                 placeholder="person@company.com"
+                aria-invalid={!!emailError}
+                className={emailError ? "border-destructive" : ""}
               />
+              {emailError && <p className="text-xs text-destructive">{emailError}</p>}
             </div>
             <div className="grid gap-1.5">
               <Label>Role</Label>
