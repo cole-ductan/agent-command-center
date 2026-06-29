@@ -108,8 +108,21 @@ function MembersPage() {
     }
   };
 
-  const inviteUrl = (token: string) =>
-    typeof window === "undefined" ? `/invite/${token}` : `${window.location.origin}/invite/${token}`;
+  const publicAppOrigin = () => {
+    const fallback = "https://call-wingman-pro.lovable.app";
+    if (typeof window === "undefined") return fallback;
+
+    const { hostname, origin } = window.location;
+    const isEditorOrPreview =
+      hostname === "localhost" ||
+      hostname.includes("id-preview--") ||
+      hostname.includes("lovableproject.com") ||
+      hostname.endsWith("-dev.lovable.app");
+
+    return isEditorOrPreview ? fallback : origin;
+  };
+
+  const inviteUrl = (token: string) => `${publicAppOrigin()}/invite/${token}`;
 
   const copyInviteLink = async (invite: Invite) => {
     try {
