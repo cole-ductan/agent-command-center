@@ -31,6 +31,7 @@ import { Route as AppSettingsTrainingDocsRouteImport } from './routes/_app/setti
 import { Route as AppSettingsTemplatesRouteImport } from './routes/_app/settings.templates'
 import { Route as AppSettingsObjectionsRouteImport } from './routes/_app/settings.objections'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings.members'
+import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings.account'
 import { Route as ApiPublicGoogleCallbackRouteImport } from './routes/api/public/google.callback'
 
 const AuthRoute = AuthRouteImport.update({
@@ -142,6 +143,11 @@ const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const ApiPublicGoogleCallbackRoute = ApiPublicGoogleCallbackRouteImport.update({
   id: '/api/public/google/callback',
   path: '/api/public/google/callback',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/playbook': typeof AppPlaybookRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
+  '/settings/account': typeof AppSettingsAccountRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/objections': typeof AppSettingsObjectionsRoute
   '/settings/templates': typeof AppSettingsTemplatesRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/playbook': typeof AppPlaybookRoute
   '/invite/$token': typeof InviteTokenRoute
   '/': typeof AppIndexRoute
+  '/settings/account': typeof AppSettingsAccountRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/objections': typeof AppSettingsObjectionsRoute
   '/settings/templates': typeof AppSettingsTemplatesRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/account': typeof AppSettingsAccountRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/objections': typeof AppSettingsObjectionsRoute
   '/_app/settings/templates': typeof AppSettingsTemplatesRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/playbook'
     | '/settings'
     | '/invite/$token'
+    | '/settings/account'
     | '/settings/members'
     | '/settings/objections'
     | '/settings/templates'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/playbook'
     | '/invite/$token'
     | '/'
+    | '/settings/account'
     | '/settings/members'
     | '/settings/objections'
     | '/settings/templates'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/invite/$token'
     | '/_app/'
+    | '/_app/settings/account'
     | '/_app/settings/members'
     | '/_app/settings/objections'
     | '/_app/settings/templates'
@@ -459,6 +471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsMembersRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/settings/account': {
+      id: '/_app/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof AppSettingsAccountRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/api/public/google/callback': {
       id: '/api/public/google/callback'
       path: '/api/public/google/callback'
@@ -470,6 +489,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppSettingsRouteChildren {
+  AppSettingsAccountRoute: typeof AppSettingsAccountRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsObjectionsRoute: typeof AppSettingsObjectionsRoute
   AppSettingsTemplatesRoute: typeof AppSettingsTemplatesRoute
@@ -479,6 +499,7 @@ interface AppSettingsRouteChildren {
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsAccountRoute: AppSettingsAccountRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsObjectionsRoute: AppSettingsObjectionsRoute,
   AppSettingsTemplatesRoute: AppSettingsTemplatesRoute,
