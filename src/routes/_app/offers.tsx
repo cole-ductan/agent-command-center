@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Accordion,
@@ -12,18 +13,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Mail, FileText, Download, Package, ShoppingBag, ExternalLink, Search } from "lucide-react";
+import { Eye, Mail, FileText, Download, Package, Search } from "lucide-react";
 import { usePendingTray } from "@/lib/pendingTrayStore";
 import { OFFER_EXPANDED } from "@/lib/offerExpanded";
-import { LOCAL_OFFER_PDFS, type LocalOfferPdf } from "@/lib/localOfferPdfs";
-import { DIXON_CATALOG, DIXON_CATALOG_SOURCE, type CatalogProduct } from "@/lib/dixonCatalog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/offers")({
   head: () => ({
     meta: [
-      { title: "Offers & Products — Dixon Command" },
-      { name: "description", content: "Full Dixon offer stack and product catalog with PDFs and email-ready details." },
+      { title: "Offers & Products" },
+      { name: "description", content: "Your workspace's offers with PDFs and email-ready details." },
     ],
   }),
   component: OffersPage,
@@ -59,21 +58,51 @@ type Offer = {
   expanded_details: string | null;
 };
 
+type OfferPdf = {
+  id: string;
+  name: string;
+  url: string;
+  offer_slug: string | null;
+};
+
 function OffersPage() {
+  const { tenantId } = useActiveTenant();
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [pdfs, setPdfs] = useState<OfferPdf[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewing, setPreviewing] = useState<LocalOfferPdf | null>(null);
+  const [previewing, setPreviewing] = useState<OfferPdf | null>(null);
   const [query, setQuery] = useState("");
   const add = usePendingTray((s) => s.add);
 
   useEffect(() => {
     (async () => {
+      if (!tenantId) {
+        setOffers([]);
+        setPdfs([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      const { data } = await supabase.from("offers").select("*").order("sort_order");
-      setOffers((data ?? []) as Offer[]);
+      const [oRes, pRes] = await Promise.all([
+        supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order"),
+        supabase
+          .from("offer_pdfs")
+          .select("id, name, offer_slug, public_url, drive_url")
+          .eq("tenant_id", tenantId)
+          .order("sort_order"),
+      ]);
+      setOffers((oRes.data ?? []) as Offer[]);
+      setPdfs(
+        (pRes.data ?? []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          offer_slug: p.offer_slug,
+          url: p.public_url || p.drive_url || "",
+        })),
+      );
       setLoading(false);
     })();
-  }, []);
+  }, [tenantId]);
 
   const q = query.trim().toLowerCase();
 
@@ -89,40 +118,11 @@ function OffersPage() {
     });
   }, [offers, q]);
 
-  const filteredCatalog = useMemo(() => {
-    if (!q) return DIXON_CATALOG;
-    return DIXON_CATALOG.map((cat) => ({
-      ...cat,
-      products: cat.products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          (p.details ?? []).some((d) => d.toLowerCase().includes(q)),
-      ),
-    })).filter((cat) => cat.products.length > 0);
-  }, [q]);
+  const pdfsFor = (slug: string) => pdfs.filter((p) => p.offer_slug === slug);
 
-  const addProductToEmail = (catTitle: string, p: CatalogProduct) => {
-    const lines = [
-      p.name,
-      p.description,
-      ...(p.details ?? []),
-      p.price ? `Price: ${p.price}` : "",
-      p.msrp ? `MSRP: ${p.msrp}` : "",
-    ].filter(Boolean);
-    add({
-      kind: "offer",
-      id: `cat-${p.name}`,
-      name: `${catTitle} — ${p.name}`,
-      details: lines.join("\n"),
-    });
-    toast.success(`Added "${p.name}" to email tray`);
-  };
-
-  // default open: first offer + first catalog category, or all matches when searching
   const defaultOpen: string[] = q
-    ? [...filteredOffers.map((o) => `offer-${o.id}`), ...filteredCatalog.map((c) => c.slug)]
-    : [filteredOffers[0] ? `offer-${filteredOffers[0].id}` : "", filteredCatalog[0]?.slug ?? ""].filter(Boolean);
+    ? filteredOffers.map((o) => `offer-${o.id}`)
+    : [filteredOffers[0] ? `offer-${filteredOffers[0].id}` : ""].filter(Boolean);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10 space-y-5">
@@ -130,43 +130,42 @@ function OffersPage() {
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-semibold">Offers & Products</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tap any offer or category to expand. Use &ldquo;Add to email&rdquo; to drop items into your pending email tray.
+            Tap any offer to expand. Use &ldquo;Add to email&rdquo; to drop items into your pending email tray.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <a href={DIXON_CATALOG_SOURCE} target="_blank" rel="noreferrer">
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            View on dixongolf.com
-          </a>
-        </Button>
       </header>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search offers, products, prizes…"
+          placeholder="Search offers…"
           className="pl-9"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
 
-      {/* DIXON OFFERS (from DB) */}
       <section className="space-y-2">
         <div className="flex items-center gap-2 px-1">
           <Package className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-lg font-semibold">Dixon Offers</h2>
+          <h2 className="font-display text-lg font-semibold">Offers</h2>
           <Badge variant="secondary" className="ml-1">{filteredOffers.length}</Badge>
         </div>
 
         {loading ? (
           <div className="p-4 text-sm text-muted-foreground">Loading offers…</div>
         ) : filteredOffers.length === 0 ? (
-          <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No offers match.</CardContent></Card>
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              {offers.length === 0
+                ? "No offers yet in this workspace. Add them in Playbook → Offers, or create a workspace from a starter template."
+                : `No offers match "${query}".`}
+            </CardContent>
+          </Card>
         ) : (
           <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
             {filteredOffers.map((o) => {
-              const offerPdfs = LOCAL_OFFER_PDFS[o.slug] ?? [];
+              const offerPdfs = pdfsFor(o.slug);
               const detail = o.expanded_details || OFFER_EXPANDED[o.slug] || o.details || "";
               return (
                 <AccordionItem
@@ -225,13 +224,12 @@ function OffersPage() {
                             <button onClick={() => setPreviewing(p)} className="rounded p-1 hover:bg-background" title="Preview">
                               <Eye className="h-3.5 w-3.5" />
                             </button>
-                            <a href={p.file} target="_blank" rel="noreferrer" download className="rounded p-1 hover:bg-background" title="Download">
+                            <a href={p.url} target="_blank" rel="noreferrer" download className="rounded p-1 hover:bg-background" title="Download">
                               <Download className="h-3.5 w-3.5" />
                             </a>
                             <button
                               onClick={() => {
-                                const absoluteUrl = typeof window !== "undefined" ? new URL(p.file, window.location.origin).toString() : p.file;
-                                add({ kind: "pdf", id: p.id, name: p.name, driveFileId: "", driveUrl: absoluteUrl });
+                                add({ kind: "pdf", id: p.id, name: p.name, driveFileId: "", driveUrl: p.url });
                                 toast.success(`Added "${p.name}" to email tray`);
                               }}
                               className="rounded p-1 hover:bg-background"
@@ -251,87 +249,16 @@ function OffersPage() {
         )}
       </section>
 
-      {/* DIXON GOLF CATALOG */}
-      <section className="space-y-2 pt-2">
-        <div className="flex items-center gap-2 px-1">
-          <ShoppingBag className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-lg font-semibold">Dixon Golf Catalog</h2>
-          <Badge variant="secondary" className="ml-1">{filteredCatalog.length}</Badge>
-        </div>
-
-        {filteredCatalog.length === 0 ? (
-          <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No catalog items match.</CardContent></Card>
-        ) : (
-          <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
-            {filteredCatalog.map(({ slug, title, Icon, blurb, products }) => (
-              <AccordionItem key={slug} value={slug} className="border rounded-lg bg-card overflow-hidden">
-                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-secondary/40">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-primary-foreground"
-                      style={{ background: "var(--gradient-fairway)" }}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 text-left">
-                      <div className="font-medium text-sm md:text-base truncate">{title}</div>
-                      {blurb && (
-                        <div className="text-[11px] text-muted-foreground line-clamp-1 hidden md:block">{blurb}</div>
-                      )}
-                    </div>
-                    <Badge variant="secondary" className="ml-auto mr-2 shrink-0">{products.length}</Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4 pt-0">
-                  {blurb && <p className="text-xs text-muted-foreground mb-3 md:hidden">{blurb}</p>}
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {products.map((p) => (
-                      <Card key={p.name} className="border-muted">
-                        <CardHeader className="p-3 pb-1.5">
-                          <CardTitle className="text-sm font-semibold leading-tight">{p.name}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-3 pt-0 space-y-2">
-                          <p className="text-xs text-muted-foreground">{p.description}</p>
-                          {p.details && p.details.length > 0 && (
-                            <ul className="text-[11px] text-muted-foreground space-y-0.5 list-disc pl-4">
-                              {p.details.map((d) => <li key={d}>{d}</li>)}
-                            </ul>
-                          )}
-                          {(p.price || p.msrp) && (
-                            <div className="flex items-baseline gap-2 pt-1">
-                              {p.price && <span className="text-sm font-semibold text-foreground">{p.price}</span>}
-                              {p.msrp && <span className="text-[11px] text-muted-foreground line-through">MSRP {p.msrp}</span>}
-                            </div>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full mt-1"
-                            onClick={() => addProductToEmail(title, p)}
-                          >
-                            <Mail className="mr-1.5 h-3 w-3" /> Add to email
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
-      </section>
-
       <Dialog open={!!previewing} onOpenChange={(v) => !v && setPreviewing(null)}>
         <DialogContent className="flex h-[85vh] w-[95vw] max-w-5xl flex-col gap-0 p-0">
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="text-sm font-medium">{previewing?.name}</DialogTitle>
           </DialogHeader>
-          {previewing && <iframe src={previewing.file} className="flex-1 w-full" title={previewing.name} />}
+          {previewing && <iframe src={previewing.url} className="flex-1 w-full" title={previewing.name} />}
           <div className="flex justify-end gap-2 border-t p-3">
             {previewing && (
               <Button size="sm" variant="outline" asChild>
-                <a href={previewing.file} target="_blank" rel="noreferrer" download>
+                <a href={previewing.url} target="_blank" rel="noreferrer" download>
                   <Download className="mr-1.5 h-3.5 w-3.5" /> Download
                 </a>
               </Button>
@@ -340,8 +267,7 @@ function OffersPage() {
               size="sm"
               onClick={() => {
                 if (!previewing) return;
-                const absoluteUrl = typeof window !== "undefined" ? new URL(previewing.file, window.location.origin).toString() : previewing.file;
-                add({ kind: "pdf", id: previewing.id, name: previewing.name, driveFileId: "", driveUrl: absoluteUrl });
+                add({ kind: "pdf", id: previewing.id, name: previewing.name, driveFileId: "", driveUrl: previewing.url });
                 toast.success("Added to email tray");
                 setPreviewing(null);
               }}

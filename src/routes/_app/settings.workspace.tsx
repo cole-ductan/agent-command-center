@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/settings/workspace")({
@@ -14,12 +18,15 @@ export const Route = createFileRoute("/_app/settings/workspace")({
 });
 
 function WorkspaceSettingsPage() {
+  const navigate = useNavigate();
   const { tenant, role, refresh } = useActiveTenant();
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [brandColor, setBrandColor] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
 
   useEffect(() => {
     if (tenant) {
@@ -116,6 +123,68 @@ function WorkspaceSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {role === "owner" && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger zone</CardTitle>
+            <CardDescription>
+              Permanently delete this workspace and all of its leads, notes, calls, schedules, and other data. This
+              cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete workspace
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete "{tenant.name}"?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes the workspace and every record inside it (leads, events, tasks, notes,
+                    calls, schedules, goals, playbook content). Type <b>{tenant.name}</b> below to confirm.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-2">
+                  <Input
+                    placeholder={tenant.name}
+                    value={confirmName}
+                    onChange={(e) => setConfirmName(e.target.value)}
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setConfirmName("")}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deleting || confirmName.trim() !== tenant.name}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setDeleting(true);
+                      const { error } = await (supabase.rpc as any)("delete_workspace", {
+                        p_tenant_id: tenant.id,
+                      });
+                      setDeleting(false);
+                      if (error) {
+                        toast.error(error.message);
+                        return;
+                      }
+                      toast.success("Workspace deleted");
+                      setConfirmName("");
+                      await refresh();
+                      navigate({ to: "/" });
+                    }}
+                  >
+                    {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Delete forever
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

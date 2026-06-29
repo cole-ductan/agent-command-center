@@ -1518,6 +1518,7 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_workspace: { Args: { p_tenant_id: string }; Returns: Json }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean

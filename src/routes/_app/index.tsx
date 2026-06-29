@@ -38,16 +38,24 @@ function Dashboard() {
   useEffect(() => { setTodayLabel(format(new Date(), "EEEE, MMMM d")); }, []);
 
   const load = async () => {
+    if (!tenantId) {
+      setTasks([]);
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
     const [t, e] = await Promise.all([
       supabase
         .from("tasks")
         .select("id,next_action,next_action_at,priority,status,events(id,event_name,stage)")
+        .eq("tenant_id", tenantId)
         .eq("status", "pending")
         .order("next_action_at", { ascending: true })
         .limit(50),
       supabase
         .from("events")
         .select("id,event_name,stage,updated_at,hot_lead,course,event_date")
+        .eq("tenant_id", tenantId)
         .order("updated_at", { ascending: false }),
     ]);
     setTasks((t.data ?? []) as any);
@@ -59,7 +67,7 @@ function Dashboard() {
     if (!user) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, tenantId]);
 
   const handleSeed = async () => {
     if (!user || !tenantId) return;

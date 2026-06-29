@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
@@ -49,6 +50,7 @@ type LeadEvent = {
 
 function FollowUpsPage() {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allEvents, setAllEvents] = useState<LeadEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,22 +65,30 @@ function FollowUpsPage() {
   };
 
   const load = useCallback(async () => {
+    if (!tenantId) {
+      setTasks([]);
+      setAllEvents([]);
+      setLoading(false);
+      return;
+    }
     const [tasksRes, eventsRes] = await Promise.all([
       supabase
         .from("tasks")
         .select("id,next_action,next_action_at,priority,status,event_id,events(id,event_name,stage,archived)")
+        .eq("tenant_id", tenantId)
         .eq("status", "pending")
         .order("next_action_at", { ascending: true }),
       supabase
         .from("events")
         .select("id,event_name,stage,created_at,last_contact_at,course,archived")
+        .eq("tenant_id", tenantId)
         .not("stage", "in", "(closed_won,closed_lost)")
         .order("created_at", { ascending: false }),
     ]);
     setTasks((tasksRes.data ?? []) as any);
     setAllEvents((eventsRes.data ?? []) as any);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
   useEffect(() => { load(); }, [load]);
 
   const groups = useMemo(() => {

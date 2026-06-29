@@ -6,6 +6,7 @@ import {
   useDraggable, useDroppable,
 } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { STAGES, type Stage, stageLabel } from "@/lib/stages";
 import { StageChip } from "@/components/StageChip";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
@@ -76,6 +77,7 @@ const STAGE_TOOLTIPS: Partial<Record<Stage, string>> = {
 const cardValue = (c: EventCard) => (Number(c.entry_fee) || 0) * (Number(c.player_count) || 0);
 
 function PipelinePage() {
+  const { tenantId } = useActiveTenant();
   const [events, setEvents] = useState<EventCard[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -86,13 +88,19 @@ function PipelinePage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const load = useCallback(async () => {
+    if (!tenantId) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from("events")
       .select("id,event_name,stage,course,event_date,hot_lead,player_count,entry_fee,where_left_off,notes,archived,dixon_tournament_id")
+      .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: false });
     setEvents((data ?? []) as any);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
   useEffect(() => { load(); }, [load]);
 
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
