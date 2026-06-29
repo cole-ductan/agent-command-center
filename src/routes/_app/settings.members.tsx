@@ -71,10 +71,16 @@ function MembersPage() {
 
   const sendInvite = async () => {
     if (!tenant || !inviteEmail.trim()) return;
+    const me = (await supabase.auth.getUser()).data.user;
+    if (!me) return;
     setInviting(true);
     try {
       const { error } = await supabase.from("tenant_invites").insert({
         tenant_id: tenant.id,
+        email: inviteEmail.trim().toLowerCase(),
+        role: inviteRole,
+        invited_by: me.id,
+      });
         email: inviteEmail.trim().toLowerCase(),
         role: inviteRole,
       });
