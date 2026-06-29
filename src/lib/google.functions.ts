@@ -218,7 +218,8 @@ export const listGmailMessages = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => ListGmailSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<{ messages: GmailListItem[] }> => {
-    const accessToken = await getValidAccessToken(context.userId);
+    const tenantId = await requireActiveTenant(context.userId);
+    const accessToken = await getValidAccessToken(context.userId, tenantId);
     if (!accessToken) return { messages: [] };
 
     const params = new URLSearchParams({
@@ -292,7 +293,8 @@ export const listCalendarEvents = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => ListCalSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<{ events: CalEvent[] }> => {
-    const accessToken = await getValidAccessToken(context.userId);
+    const tenantId = await requireActiveTenant(context.userId);
+    const accessToken = await getValidAccessToken(context.userId, tenantId);
     if (!accessToken) return { events: [] };
 
     const timeMin = data.timeMin ?? new Date().toISOString();
