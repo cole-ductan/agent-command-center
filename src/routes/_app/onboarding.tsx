@@ -86,13 +86,31 @@ function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 md:px-8 space-y-8">
-      <header>
-        <h1 className="font-display text-3xl font-semibold">Welcome — let's set up your command center</h1>
-        <p className="mt-2 text-muted-foreground">
-          A workspace is your company's command center. Each workspace gets its own scripts, offers,
-          emails, training docs, and CRM.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-semibold">Welcome — let's set up your command center</h1>
+          <p className="mt-2 text-muted-foreground">
+            A workspace is your company's command center. Each workspace gets its own scripts, offers,
+            emails, training docs, and CRM.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => navigate({ to: "/settings/account" })}>
+            Account settings
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/auth", replace: true });
+            }}
+          >
+            Sign out
+          </Button>
+        </div>
       </header>
+
 
       <Card>
         <CardHeader>
