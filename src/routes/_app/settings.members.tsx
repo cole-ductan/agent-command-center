@@ -66,7 +66,7 @@ function MembersPage() {
       .from("tenant_invites")
       .select("id, email, role, token, expires_at, accepted_at")
       .eq("tenant_id", tenant.id)
-      .is("accepted_at", null);
+      .order("created_at", { ascending: false });
     setInvites((inv ?? []) as Invite[]);
     setLoading(false);
   }, [tenant]);
@@ -259,35 +259,57 @@ function MembersPage() {
 
       {invites.length > 0 && (
         <Card>
-          <CardHeader><CardTitle>Pending invites</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Invites</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {invites.map((i) => (
-              <div key={i.id} className="flex items-center justify-between rounded-md border p-3">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{i.email}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {i.role} · expires {new Date(i.expires_at).toLocaleDateString()}
+            {invites.map((i) => {
+              const accepted = !!i.accepted_at;
+              const expired = !accepted && new Date(i.expires_at) < new Date();
+              return (
+                <div key={i.id} className="flex items-center justify-between rounded-md border p-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{i.email}</span>
+                      <span
+                        className={`text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 ${
+                          accepted
+                            ? "bg-emerald-500/10 text-emerald-600"
+                            : expired
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-amber-500/10 text-amber-600"
+                        }`}
+                      >
+                        {accepted ? "Accepted" : expired ? "Expired" : "Pending"}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {i.role} ·{" "}
+                      {accepted
+                        ? `accepted ${new Date(i.accepted_at!).toLocaleDateString()}`
+                        : `expires ${new Date(i.expires_at).toLocaleDateString()}`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {!accepted && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5"
+                        onClick={() => copyInviteLink(i)}
+                        title="Copy invite link"
+                      >
+                        {copiedId === i.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedId === i.id ? "Copied" : "Copy link"}
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button size="icon" variant="ghost" onClick={() => removeInvite(i.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 gap-1.5"
-                    onClick={() => copyInviteLink(i)}
-                    title="Copy invite link"
-                  >
-                    {copiedId === i.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {copiedId === i.id ? "Copied" : "Copy link"}
-                  </Button>
-                  {canManage && (
-                    <Button size="icon" variant="ghost" onClick={() => removeInvite(i.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       )}
