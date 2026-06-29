@@ -88,6 +88,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (memberships.length > 0) return;
     if (location.pathname.startsWith("/onboarding")) return;
     if (location.pathname.startsWith("/invite/")) return;
+    // Allow account settings without a workspace so users can still manage / delete their account.
+    if (location.pathname.startsWith("/settings/account")) return;
 
     let pendingInvite: string | null = null;
     try {
