@@ -299,9 +299,44 @@ function OffersPage() {
                         <Mail className="mr-1.5 h-3 w-3" /> Add to email
                       </Button>
                     </div>
-                    {offerPdfs.length > 0 && (
+                    {(offerPdfs.length > 0 || canManage) && (
                       <div className="mt-3 space-y-1.5 border-t pt-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PDFs</div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PDFs</div>
+                          {canManage && (
+                            <>
+                              <input
+                                ref={(el) => { fileInputRefs.current[o.slug] = el; }}
+                                type="file"
+                                accept="application/pdf"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) uploadPdf(f, o.slug);
+                                }}
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-[11px]"
+                                disabled={uploadingFor === o.slug}
+                                onClick={() => fileInputRefs.current[o.slug]?.click()}
+                              >
+                                {uploadingFor === o.slug ? (
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Upload className="mr-1 h-3 w-3" />
+                                )}
+                                {uploadingFor === o.slug ? "Uploading…" : "Upload PDF"}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {offerPdfs.length === 0 && canManage && (
+                          <div className="rounded-md border border-dashed bg-secondary/20 px-2 py-2 text-[11px] text-muted-foreground">
+                            No PDFs yet. Click &ldquo;Upload PDF&rdquo; to add one.
+                          </div>
+                        )}
                         {offerPdfs.map((p) => (
                           <div key={p.id} className="flex items-center gap-2 rounded-md border bg-secondary/30 px-2 py-1.5">
                             <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -322,6 +357,20 @@ function OffersPage() {
                             >
                               <Mail className="h-3.5 w-3.5" />
                             </button>
+                            {canManage && (
+                              <button
+                                onClick={() => deletePdf(p)}
+                                disabled={deletingId === p.id}
+                                className="rounded p-1 text-destructive hover:bg-background disabled:opacity-50"
+                                title="Delete"
+                              >
+                                {deletingId === p.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
