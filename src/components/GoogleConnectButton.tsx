@@ -17,6 +17,7 @@ import {
   disconnectGoogle,
 } from "@/lib/google.functions";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 type Status = { connected: boolean; email: string | null };
 
@@ -25,6 +26,7 @@ export function GoogleConnectButton() {
   const statusFn = useServerFn(getGoogleStatus);
   const disconnectFn = useServerFn(disconnectGoogle);
   const { session, loading: authLoading } = useAuth();
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
 
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,24 +36,22 @@ export function GoogleConnectButton() {
       const s = await statusFn();
       setStatus({ connected: s.connected, email: s.email });
     } catch (e) {
-      // Auth middleware throws a Response (401) when not authenticated.
-      // Treat any failure as "not connected" instead of bubbling up.
       setStatus({ connected: false, email: null });
     }
   };
 
   useEffect(() => {
-    // Only call the server fn once we have an authenticated session,
-    // otherwise the auth middleware throws a Response (401) and surfaces
-    // as an unhandled "[object Response]" runtime error.
-    if (authLoading) return;
-    if (!session) {
+    if (authLoading || tenantLoading) return;
+    if (!session || !tenantId) {
       setStatus({ connected: false, email: null });
       return;
     }
+    // Reset to loading while we refetch for the new workspace so users
+    // never see the previous workspace's "connected" badge briefly.
+    setStatus(null);
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, session?.access_token]);
+  }, [authLoading, tenantLoading, session?.access_token, tenantId]);
 
   const connect = async () => {
     setBusy(true);
