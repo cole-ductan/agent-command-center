@@ -121,7 +121,7 @@ export const mirrorOfferPdfsToStorage = createServerFn({ method: "POST" })
             if (seenForSlug.has(dedupe)) continue;
             seenForSlug.add(dedupe);
 
-            const storagePath = `${userId}/${slug}/${safeName(f.name)}`;
+            const storagePath = `${tenantId}/${slug}/${safeName(f.name)}`;
 
             try {
               const buf = await downloadDrivePdf(f.id, apiKey);
