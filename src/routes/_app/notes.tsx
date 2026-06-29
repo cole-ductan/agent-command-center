@@ -94,12 +94,24 @@ function NotesPage() {
 
   const loadAll = async () => {
     if (!user) return;
+    if (!tenantId) {
+      setFolders([]);
+      setNotes([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const [f, n] = await Promise.all([
-      supabase.from("note_folders").select("*").order("sort_order").order("name"),
+      supabase
+        .from("note_folders")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("sort_order")
+        .order("name"),
       supabase
         .from("notes")
         .select("*")
+        .eq("tenant_id", tenantId)
         .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false })
         .limit(500),
@@ -112,7 +124,7 @@ function NotesPage() {
   useEffect(() => {
     if (user) void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, tenantId]);
 
   const counts = useMemo(() => {
     const m: Record<string, number> = { [ALL]: notes.length, [UNCAT]: 0 };
