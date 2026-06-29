@@ -14,7 +14,7 @@ import { withSupabaseSession } from "@/integrations/supabase/serverfn-auth";
  * message asking them to transfer ownership or remove members first.
  */
 export const deleteMyAccount = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withSupabaseSession])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
