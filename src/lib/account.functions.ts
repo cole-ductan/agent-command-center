@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withSupabaseSession } from "@/integrations/supabase/serverfn-auth";
 
 /**
  * Deletes the signed-in user's account.
