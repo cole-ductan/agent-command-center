@@ -75,26 +75,50 @@ function MembersPage() {
     load();
   }, [load]);
 
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const sendInvite = async () => {
-    if (!tenant || !inviteEmail.trim()) return;
+    if (!tenant) return;
+    const parsed = emailSchema.safeParse(inviteEmail);
+    if (!parsed.success) {
+      setEmailError(parsed.error.issues[0]?.message ?? "Invalid email");
+      return;
+    }
+    setEmailError(null);
+    const cleanEmail = parsed.data;
     const me = (await supabase.auth.getUser()).data.user;
     if (!me) return;
     setInviting(true);
     try {
       const { error } = await supabase.from("tenant_invites").insert({
         tenant_id: tenant.id,
-        email: inviteEmail.trim().toLowerCase(),
+        email: cleanEmail,
         role: inviteRole,
         invited_by: me.id,
       });
       if (error) throw error;
-      toast.success(`Invite created for ${inviteEmail}`);
+      toast.success(`Invite created for ${cleanEmail}`);
       setInviteEmail("");
       load();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to invite");
     } finally {
       setInviting(false);
+    }
+  };
+
+  const inviteUrl = (token: string) =>
+    typeof window === "undefined" ? `/invite/${token}` : `${window.location.origin}/invite/${token}`;
+
+  const copyInviteLink = async (invite: Invite) => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(invite.token));
+      setCopiedId(invite.id);
+      toast.success("Invite link copied");
+      setTimeout(() => setCopiedId((c) => (c === invite.id ? null : c)), 1500);
+    } catch {
+      toast.error("Could not copy — link: " + inviteUrl(invite.token));
     }
   };
 
