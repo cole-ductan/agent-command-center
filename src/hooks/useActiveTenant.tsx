@@ -80,12 +80,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (!authLoading) load();
   }, [authLoading, load]);
 
-  // Redirect to onboarding if signed in with zero tenants
+  // Redirect to onboarding if signed in with zero tenants — but first honor any
+  // pending workspace invite so invited users join the inviting workspace
+  // instead of being forced to create a brand-new one of their own.
   useEffect(() => {
     if (loading || authLoading || !user) return;
-    if (memberships.length === 0 && !location.pathname.startsWith("/onboarding")) {
-      navigate({ to: "/onboarding", replace: true });
+    if (memberships.length > 0) return;
+    if (location.pathname.startsWith("/onboarding")) return;
+    if (location.pathname.startsWith("/invite/")) return;
+
+    let pendingInvite: string | null = null;
+    try {
+      pendingInvite = localStorage.getItem("pending_invite_token");
+    } catch {}
+    if (pendingInvite) {
+      navigate({ to: "/invite/$token", params: { token: pendingInvite }, replace: true });
+      return;
     }
+    navigate({ to: "/onboarding", replace: true });
   }, [loading, authLoading, user, memberships, location.pathname, navigate]);
 
   const switchTenant = useCallback(
