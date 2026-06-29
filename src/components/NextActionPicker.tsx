@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,17 +17,22 @@ const FREE_VALUE = "__free__";
 
 export function NextActionPicker({ value, onChange, placeholder = "Choose next action…" }: Props) {
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [presets, setPresets] = useState<{ id: string; label: string }[]>([]);
   const [freeMode, setFreeMode] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !tenantId) {
+      setPresets([]);
+      return;
+    }
     supabase
       .from("next_action_presets")
       .select("id,label")
+      .eq("tenant_id", tenantId)
       .order("sort_order")
       .then(({ data }) => setPresets(data ?? []));
-  }, [user]);
+  }, [user, tenantId]);
 
   // If the current value isn't a preset, treat as free-text mode
   useEffect(() => {
