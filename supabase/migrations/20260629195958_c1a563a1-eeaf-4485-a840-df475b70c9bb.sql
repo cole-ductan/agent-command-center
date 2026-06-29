@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Members can view tenant google tokens" ON public.google_tokens;
