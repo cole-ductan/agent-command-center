@@ -27,6 +27,25 @@ const StartSchema = z.object({
   returnTo: z.string().min(1).max(200),
 });
 
+function canonicalOAuthOrigin(origin: string) {
+  const parsed = new URL(origin);
+  const previewHost = process.env.LOVABLE_PREVIEW_HOST;
+
+  // The Lovable editor can run the app inside a lovableproject.com iframe host.
+  // Google OAuth clients are configured against the app's canonical lovable.app
+  // host, so using the iframe origin as redirect_uri causes Google 403s.
+  if (parsed.hostname.endsWith(".lovableproject.com") && previewHost) {
+    return `https://${previewHost}`;
+  }
+
+  return parsed.origin;
+}
+
+function safeReturnTo(returnTo: string) {
+  if (!returnTo.startsWith("/") || returnTo.startsWith("//")) return "/";
+  return returnTo;
+}
+
 /** Build the Google OAuth consent URL for the current user + active workspace. */
 export const startGoogleOAuth = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
@@ -36,8 +55,13 @@ export const startGoogleOAuth = createServerFn({ method: "POST" })
     if (!clientId) throw new Error("GOOGLE_OAUTH_CLIENT_ID not configured");
 
     const tenantId = await requireActiveTenant(context.userId);
-    const redirectUri = `${data.origin}/api/public/google/callback`;
-    const state = signState({ userId: context.userId, tenantId, returnTo: data.returnTo });
+    const oauthOrigin = canonicalOAuthOrigin(data.origin);
+    const redirectUri = `${oauthOrigin}/api/public/google/callback`;
+    const state = signState({
+      userId: context.userId,
+      tenantId,
+      returnTo: safeReturnTo(data.returnTo),
+    });
 
     const params = new URLSearchParams({
       client_id: clientId,
