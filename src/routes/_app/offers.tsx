@@ -134,6 +134,13 @@ function OffersPage() {
             Tap any offer to expand. Use &ldquo;Add to email&rdquo; to drop items into your pending email tray.
           </p>
         </div>
+        {catalogUrl && (
+          <Button asChild size="sm" variant="outline">
+            <a href={catalogUrl} target="_blank" rel="noreferrer">
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Product Catalog
+            </a>
+          </Button>
+        )}
       </header>
 
       <div className="relative">
