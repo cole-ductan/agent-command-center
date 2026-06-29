@@ -60,8 +60,8 @@ function OnboardingPage() {
       const { data: result, error } = await supabase.rpc("create_workspace", {
         p_name: name.trim(),
         p_slug: slugify(name),
-        p_industry: industry.trim() || null,
-        p_template_id: selectedTemplate,
+        p_industry: industry.trim() || undefined,
+        p_template_id: selectedTemplate ?? undefined,
       });
       if (error) throw error;
 
