@@ -68,14 +68,46 @@ type OfferPdf = {
 };
 
 function OffersPage() {
-  const { tenantId, tenant } = useActiveTenant();
+  const { tenantId, tenant, role } = useActiveTenant();
+  const { user } = useAuth();
+  const canManage = role === "owner" || role === "admin";
   const catalogUrl = ((tenant?.settings as any)?.product_catalog_url as string | undefined) ?? "";
   const [offers, setOffers] = useState<Offer[]>([]);
   const [pdfs, setPdfs] = useState<OfferPdf[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState<OfferPdf | null>(null);
   const [query, setQuery] = useState("");
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const add = usePendingTray((s) => s.add);
+
+  const refreshPdfRow = async (raw: any): Promise<OfferPdf> => {
+    let url = raw.public_url || raw.drive_url || "";
+    if (raw.storage_path) {
+      const { data } = await supabase.storage
+        .from("offer-pdfs")
+        .createSignedUrl(raw.storage_path, 60 * 60 * 24 * 7);
+      if (data?.signedUrl) url = data.signedUrl;
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      offer_slug: raw.offer_slug,
+      storage_path: raw.storage_path ?? null,
+      url,
+    };
+  };
+
+  const loadPdfs = async (tid: string) => {
+    const { data } = await supabase
+      .from("offer_pdfs")
+      .select("id, name, offer_slug, public_url, drive_url, storage_path")
+      .eq("tenant_id", tid)
+      .order("sort_order");
+    const mapped = await Promise.all((data ?? []).map(refreshPdfRow));
+    setPdfs(mapped);
+  };
 
   useEffect(() => {
     (async () => {
@@ -86,26 +118,69 @@ function OffersPage() {
         return;
       }
       setLoading(true);
-      const [oRes, pRes] = await Promise.all([
-        supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order"),
-        supabase
-          .from("offer_pdfs")
-          .select("id, name, offer_slug, public_url, drive_url")
-          .eq("tenant_id", tenantId)
-          .order("sort_order"),
-      ]);
+      const oRes = await supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order");
       setOffers((oRes.data ?? []) as Offer[]);
-      setPdfs(
-        (pRes.data ?? []).map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          offer_slug: p.offer_slug,
-          url: p.public_url || p.drive_url || "",
-        })),
-      );
+      await loadPdfs(tenantId);
       setLoading(false);
     })();
   }, [tenantId]);
+
+  const uploadPdf = async (file: File, offerSlug: string) => {
+    if (!tenantId || !user) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Only PDF files are allowed");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("PDF must be under 15 MB");
+      return;
+    }
+    setUploadingFor(offerSlug);
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const path = `${tenantId}/${offerSlug}/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from("offer-pdfs")
+        .upload(path, file, { contentType: "application/pdf" });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("offer_pdfs").insert({
+        tenant_id: tenantId,
+        user_id: user.id,
+        name: file.name.replace(/\.pdf$/i, ""),
+        offer_slug: offerSlug,
+        storage_path: path,
+      });
+      if (insErr) throw insErr;
+      await loadPdfs(tenantId);
+      toast.success(`Uploaded "${file.name}"`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Upload failed");
+    } finally {
+      setUploadingFor(null);
+      const input = fileInputRefs.current[offerSlug];
+      if (input) input.value = "";
+    }
+  };
+
+  const deletePdf = async (p: OfferPdf) => {
+    if (!tenantId) return;
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    setDeletingId(p.id);
+    try {
+      if (p.storage_path) {
+        await supabase.storage.from("offer-pdfs").remove([p.storage_path]);
+      }
+      const { error } = await supabase.from("offer_pdfs").delete().eq("id", p.id);
+      if (error) throw error;
+      setPdfs((prev) => prev.filter((x) => x.id !== p.id));
+      toast.success("Deleted");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
 
   const q = query.trim().toLowerCase();
 
