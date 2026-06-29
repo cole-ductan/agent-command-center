@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Phone, LayoutDashboard, KanbanSquare, CalendarClock, BookOpen, LogOut, Flag,
   CalendarRange, Package, Loader2, FileText, StickyNote, Mail, Plus, UserPlus,
-  CalendarPlus, Users, Building2, Settings, Check,
+  CalendarPlus, Users, Building2, Settings, Check, ChevronsUpDown,
 } from "lucide-react";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
 import { PendingEmailTray } from "@/components/PendingEmailTray";
@@ -108,6 +108,7 @@ function AppShellInner() {
                     Command Center
                   </div>
                 </div>
+                <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">

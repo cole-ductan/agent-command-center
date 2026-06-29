@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Mail, FileText, Download, Package, Search, ExternalLink } from "lucide-react";
+import { Eye, Mail, FileText, Download, Package, Search, ExternalLink, Upload, Loader2, Trash2 } from "lucide-react";
 import { usePendingTray } from "@/lib/pendingTrayStore";
 import { OFFER_EXPANDED } from "@/lib/offerExpanded";
 import { toast } from "sonner";
@@ -63,17 +64,50 @@ type OfferPdf = {
   name: string;
   url: string;
   offer_slug: string | null;
+  storage_path: string | null;
 };
 
 function OffersPage() {
-  const { tenantId, tenant } = useActiveTenant();
+  const { tenantId, tenant, role } = useActiveTenant();
+  const { user } = useAuth();
+  const canManage = role === "owner" || role === "admin";
   const catalogUrl = ((tenant?.settings as any)?.product_catalog_url as string | undefined) ?? "";
   const [offers, setOffers] = useState<Offer[]>([]);
   const [pdfs, setPdfs] = useState<OfferPdf[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState<OfferPdf | null>(null);
   const [query, setQuery] = useState("");
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const add = usePendingTray((s) => s.add);
+
+  const refreshPdfRow = async (raw: any): Promise<OfferPdf> => {
+    let url = raw.public_url || raw.drive_url || "";
+    if (raw.storage_path) {
+      const { data } = await supabase.storage
+        .from("offer-pdfs")
+        .createSignedUrl(raw.storage_path, 60 * 60 * 24 * 7);
+      if (data?.signedUrl) url = data.signedUrl;
+    }
+    return {
+      id: raw.id,
+      name: raw.name,
+      offer_slug: raw.offer_slug,
+      storage_path: raw.storage_path ?? null,
+      url,
+    };
+  };
+
+  const loadPdfs = async (tid: string) => {
+    const { data } = await supabase
+      .from("offer_pdfs")
+      .select("id, name, offer_slug, public_url, drive_url, storage_path")
+      .eq("tenant_id", tid)
+      .order("sort_order");
+    const mapped = await Promise.all((data ?? []).map(refreshPdfRow));
+    setPdfs(mapped);
+  };
 
   useEffect(() => {
     (async () => {
@@ -84,26 +118,69 @@ function OffersPage() {
         return;
       }
       setLoading(true);
-      const [oRes, pRes] = await Promise.all([
-        supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order"),
-        supabase
-          .from("offer_pdfs")
-          .select("id, name, offer_slug, public_url, drive_url")
-          .eq("tenant_id", tenantId)
-          .order("sort_order"),
-      ]);
+      const oRes = await supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order");
       setOffers((oRes.data ?? []) as Offer[]);
-      setPdfs(
-        (pRes.data ?? []).map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          offer_slug: p.offer_slug,
-          url: p.public_url || p.drive_url || "",
-        })),
-      );
+      await loadPdfs(tenantId);
       setLoading(false);
     })();
   }, [tenantId]);
+
+  const uploadPdf = async (file: File, offerSlug: string) => {
+    if (!tenantId || !user) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Only PDF files are allowed");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("PDF must be under 15 MB");
+      return;
+    }
+    setUploadingFor(offerSlug);
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const path = `${tenantId}/${offerSlug}/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from("offer-pdfs")
+        .upload(path, file, { contentType: "application/pdf" });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from("offer_pdfs").insert({
+        tenant_id: tenantId,
+        user_id: user.id,
+        name: file.name.replace(/\.pdf$/i, ""),
+        offer_slug: offerSlug,
+        storage_path: path,
+      });
+      if (insErr) throw insErr;
+      await loadPdfs(tenantId);
+      toast.success(`Uploaded "${file.name}"`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Upload failed");
+    } finally {
+      setUploadingFor(null);
+      const input = fileInputRefs.current[offerSlug];
+      if (input) input.value = "";
+    }
+  };
+
+  const deletePdf = async (p: OfferPdf) => {
+    if (!tenantId) return;
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    setDeletingId(p.id);
+    try {
+      if (p.storage_path) {
+        await supabase.storage.from("offer-pdfs").remove([p.storage_path]);
+      }
+      const { error } = await supabase.from("offer_pdfs").delete().eq("id", p.id);
+      if (error) throw error;
+      setPdfs((prev) => prev.filter((x) => x.id !== p.id));
+      toast.success("Deleted");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
 
   const q = query.trim().toLowerCase();
 
@@ -222,9 +299,44 @@ function OffersPage() {
                         <Mail className="mr-1.5 h-3 w-3" /> Add to email
                       </Button>
                     </div>
-                    {offerPdfs.length > 0 && (
+                    {(offerPdfs.length > 0 || canManage) && (
                       <div className="mt-3 space-y-1.5 border-t pt-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PDFs</div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PDFs</div>
+                          {canManage && (
+                            <>
+                              <input
+                                ref={(el) => { fileInputRefs.current[o.slug] = el; }}
+                                type="file"
+                                accept="application/pdf"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) uploadPdf(f, o.slug);
+                                }}
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-[11px]"
+                                disabled={uploadingFor === o.slug}
+                                onClick={() => fileInputRefs.current[o.slug]?.click()}
+                              >
+                                {uploadingFor === o.slug ? (
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Upload className="mr-1 h-3 w-3" />
+                                )}
+                                {uploadingFor === o.slug ? "Uploading…" : "Upload PDF"}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {offerPdfs.length === 0 && canManage && (
+                          <div className="rounded-md border border-dashed bg-secondary/20 px-2 py-2 text-[11px] text-muted-foreground">
+                            No PDFs yet. Click &ldquo;Upload PDF&rdquo; to add one.
+                          </div>
+                        )}
                         {offerPdfs.map((p) => (
                           <div key={p.id} className="flex items-center gap-2 rounded-md border bg-secondary/30 px-2 py-1.5">
                             <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -245,6 +357,20 @@ function OffersPage() {
                             >
                               <Mail className="h-3.5 w-3.5" />
                             </button>
+                            {canManage && (
+                              <button
+                                onClick={() => deletePdf(p)}
+                                disabled={deletingId === p.id}
+                                className="rounded p-1 text-destructive hover:bg-background disabled:opacity-50"
+                                title="Delete"
+                              >
+                                {deletingId === p.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>

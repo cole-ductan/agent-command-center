@@ -38,17 +38,22 @@ function FlyersPage() {
       setLoading(true);
       const { data } = await supabase
         .from("offer_pdfs")
-        .select("id, name, offer_slug, public_url, drive_url")
+        .select("id, name, offer_slug, public_url, drive_url, storage_path")
         .eq("tenant_id", tenantId)
         .order("sort_order");
-      setPdfs(
-        (data ?? []).map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          offer_slug: p.offer_slug,
-          url: p.public_url || p.drive_url || "",
-        })),
+      const mapped = await Promise.all(
+        (data ?? []).map(async (p: any) => {
+          let url = p.public_url || p.drive_url || "";
+          if (p.storage_path) {
+            const { data: signed } = await supabase.storage
+              .from("offer-pdfs")
+              .createSignedUrl(p.storage_path, 60 * 60 * 24 * 7);
+            if (signed?.signedUrl) url = signed.signedUrl;
+          }
+          return { id: p.id, name: p.name, offer_slug: p.offer_slug, url };
+        }),
       );
+      setPdfs(mapped);
       setLoading(false);
     })();
   }, [tenantId]);
