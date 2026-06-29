@@ -1,12 +1,13 @@
 /**
- * Google OAuth scopes used by the Dixon Command Center.
- * Centralized so callback + start route stay in sync.
+ * Google OAuth scopes used by the Connect Google flow.
+ * Trimmed to the minimum: Calendar events + basic profile/email.
+ * Gmail and Drive scopes were removed; restore them if/when those
+ * features are actually built (see git history for prior scope set).
  */
 export const GOOGLE_SCOPES = [
-  "https://www.googleapis.com/auth/calendar",
-  "https://www.googleapis.com/auth/drive.readonly",
-  "https://mail.google.com/",
+  "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
   "openid",
 ] as const;
 
