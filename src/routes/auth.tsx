@@ -21,7 +21,16 @@ function AuthPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/", replace: true });
+    if (loading || !user) return;
+    let dest = "/";
+    try {
+      const stored = sessionStorage.getItem("post_auth_redirect");
+      if (stored && stored.startsWith("/")) {
+        dest = stored;
+        sessionStorage.removeItem("post_auth_redirect");
+      }
+    } catch {}
+    navigate({ to: dest, replace: true });
   }, [loading, user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppPlaybookRouteImport } from './routes/_app/playbook'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
@@ -45,6 +46,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof AppPipelineRoute
   '/playbook': typeof AppPlaybookRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/objections': typeof AppSettingsObjectionsRoute
   '/settings/templates': typeof AppSettingsTemplatesRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AppOnboardingRoute
   '/pipeline': typeof AppPipelineRoute
   '/playbook': typeof AppPlaybookRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/': typeof AppIndexRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/objections': typeof AppSettingsObjectionsRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/playbook': typeof AppPlaybookRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/_app/': typeof AppIndexRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/objections': typeof AppSettingsObjectionsRoute
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/playbook'
     | '/settings'
+    | '/invite/$token'
     | '/settings/members'
     | '/settings/objections'
     | '/settings/templates'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/pipeline'
     | '/playbook'
+    | '/invite/$token'
     | '/'
     | '/settings/members'
     | '/settings/objections'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/_app/pipeline'
     | '/_app/playbook'
     | '/_app/settings'
+    | '/invite/$token'
     | '/_app/'
     | '/_app/settings/members'
     | '/_app/settings/objections'
@@ -287,6 +299,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   ApiPublicGoogleCallbackRoute: typeof ApiPublicGoogleCallbackRoute
 }
 
@@ -312,6 +325,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/settings': {
       id: '/_app/settings'
@@ -508,6 +528,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  InviteTokenRoute: InviteTokenRoute,
   ApiPublicGoogleCallbackRoute: ApiPublicGoogleCallbackRoute,
 }
 export const routeTree = rootRouteImport
