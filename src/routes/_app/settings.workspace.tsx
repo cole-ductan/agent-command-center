@@ -123,6 +123,68 @@ function WorkspaceSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {role === "owner" && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger zone</CardTitle>
+            <CardDescription>
+              Permanently delete this workspace and all of its leads, notes, calls, schedules, and other data. This
+              cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete workspace
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete "{tenant.name}"?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes the workspace and every record inside it (leads, events, tasks, notes,
+                    calls, schedules, goals, playbook content). Type <b>{tenant.name}</b> below to confirm.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-2">
+                  <Input
+                    placeholder={tenant.name}
+                    value={confirmName}
+                    onChange={(e) => setConfirmName(e.target.value)}
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setConfirmName("")}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deleting || confirmName.trim() !== tenant.name}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setDeleting(true);
+                      const { error } = await (supabase.rpc as any)("delete_workspace", {
+                        p_tenant_id: tenant.id,
+                      });
+                      setDeleting(false);
+                      if (error) {
+                        toast.error(error.message);
+                        return;
+                      }
+                      toast.success("Workspace deleted");
+                      setConfirmName("");
+                      await refresh();
+                      navigate({ to: "/" });
+                    }}
+                  >
+                    {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Delete forever
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
