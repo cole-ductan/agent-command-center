@@ -66,7 +66,7 @@ function MembersPage() {
       .from("tenant_invites")
       .select("id, email, role, token, expires_at, accepted_at")
       .eq("tenant_id", tenant.id)
-      .is("accepted_at", null);
+      .order("created_at", { ascending: false });
     setInvites((inv ?? []) as Invite[]);
     setLoading(false);
   }, [tenant]);
