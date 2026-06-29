@@ -1503,6 +1503,15 @@ export type Database = {
         Args: { p_template_id: string; p_tenant_id: string }
         Returns: Json
       }
+      create_workspace: {
+        Args: {
+          p_industry?: string
+          p_name: string
+          p_slug: string
+          p_template_id?: string
+        }
+        Returns: Json
+      }
       is_tenant_admin: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
