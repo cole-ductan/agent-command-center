@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Mail, FileText, Download, Package, Search, ExternalLink } from "lucide-react";
+import { Eye, Mail, FileText, Download, Package, Search, ExternalLink, Upload, Loader2, Trash2 } from "lucide-react";
 import { usePendingTray } from "@/lib/pendingTrayStore";
 import { OFFER_EXPANDED } from "@/lib/offerExpanded";
 import { toast } from "sonner";
