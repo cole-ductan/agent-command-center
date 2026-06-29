@@ -155,16 +155,23 @@ function LiveCallWorkspace() {
 
   // load all events for picker
   useEffect(() => {
-    supabase.from("events").select("*").eq("archived", false).order("updated_at", { ascending: false }).then(({ data }) => {
+    if (!tenantId) {
+      setEvents([]);
+      setScriptSections([]);
+      setOffers([]);
+      setTemplates([]);
+      return;
+    }
+    supabase.from("events").select("*").eq("tenant_id", tenantId).eq("archived", false).order("updated_at", { ascending: false }).then(({ data }) => {
       setEvents(data ?? []);
       // Only auto-select first event if not explicitly starting a new lead
       if (!eventId && !forceNew && data && data.length) setEventId(data[0].id);
     });
-    supabase.from("script_sections").select("*").order("sort_order").then(({ data }) => setScriptSections((data ?? []) as any));
-    supabase.from("offers").select("*").order("sort_order").then(({ data }) => setOffers((data ?? []) as any));
-    supabase.from("email_templates").select("*").then(({ data }) => setTemplates((data ?? []) as any));
+    supabase.from("script_sections").select("*").eq("tenant_id", tenantId).order("sort_order").then(({ data }) => setScriptSections((data ?? []) as any));
+    supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order").then(({ data }) => setOffers((data ?? []) as any));
+    supabase.from("email_templates").select("*").eq("tenant_id", tenantId).then(({ data }) => setTemplates((data ?? []) as any));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, tenantId]);
 
   // load selected event detail + contact
   useEffect(() => {
