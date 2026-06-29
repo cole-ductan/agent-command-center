@@ -87,8 +87,8 @@ function AcceptInvitePage() {
         {status.kind === "signed_out" ? (
           <>
             <p className="text-sm text-muted-foreground">
-              Sign in or create an account with the email this invite was sent to, then come back to
-              accept.
+              Sign in or create an account using the <strong>same email this invite was sent to</strong>,
+              then you'll be added to the workspace automatically.
             </p>
             <Button onClick={goSignIn} className="w-full">
               Continue to sign in
