@@ -255,11 +255,23 @@ function MembersPage() {
                     {i.role} · expires {new Date(i.expires_at).toLocaleDateString()}
                   </div>
                 </div>
-                {canManage && (
-                  <Button size="icon" variant="ghost" onClick={() => removeInvite(i.id)}>
-                    <Trash2 className="h-4 w-4" />
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5"
+                    onClick={() => copyInviteLink(i)}
+                    title="Copy invite link"
+                  >
+                    {copiedId === i.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedId === i.id ? "Copied" : "Copy link"}
                   </Button>
-                )}
+                  {canManage && (
+                    <Button size="icon" variant="ghost" onClick={() => removeInvite(i.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>
