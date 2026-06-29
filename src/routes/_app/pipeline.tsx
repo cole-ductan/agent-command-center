@@ -6,6 +6,7 @@ import {
   useDraggable, useDroppable,
 } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { STAGES, type Stage, stageLabel } from "@/lib/stages";
 import { StageChip } from "@/components/StageChip";
 import { AddLeadDialog } from "@/components/AddLeadDialog";
