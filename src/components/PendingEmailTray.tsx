@@ -1,21 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mail, X, FileText, Sparkles, Trash2, Send, ExternalLink, Loader2 } from "lucide-react";
+import { Mail, X, FileText, Sparkles, Trash2, ExternalLink } from "lucide-react";
 import { usePendingTray, buildGmailComposeUrl, type TrayItem } from "@/lib/pendingTrayStore";
 import { cn } from "@/lib/utils";
-import { sendGmail } from "@/lib/google.functions";
-import { toast } from "sonner";
 
 export function PendingEmailTray() {
-  const { items, to, subject, body, open, setOpen, setTo, setSubject, setBody, remove, clear, add } =
+  const { items, to, subject, body, open, setOpen, setTo, setSubject, setBody, remove, clear } =
     usePendingTray();
-  const sendGmailFn = useServerFn(sendGmail);
-  const [sending, setSending] = useState(false);
 
   const count = items.length;
 
