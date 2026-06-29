@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Flag, Loader2 } from "lucide-react";
+import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
