@@ -9,12 +9,25 @@ import {
 } from "@/lib/google.server";
 import { signState } from "@/lib/googleState.server";
 
+/** Resolve the signed-in user's active workspace, or throw. */
+async function requireActiveTenant(userId: string): Promise<string> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("active_tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const tenantId = data?.active_tenant_id;
+  if (!tenantId) throw new Error("No active workspace selected.");
+  return tenantId;
+}
+
 const StartSchema = z.object({
   origin: z.string().url(),
   returnTo: z.string().min(1).max(200),
 });
 
-/** Build the Google OAuth consent URL for the current user. */
+/** Build the Google OAuth consent URL for the current user + active workspace. */
 export const startGoogleOAuth = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => StartSchema.parse(input))
@@ -22,8 +35,9 @@ export const startGoogleOAuth = createServerFn({ method: "POST" })
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     if (!clientId) throw new Error("GOOGLE_OAUTH_CLIENT_ID not configured");
 
+    const tenantId = await requireActiveTenant(context.userId);
     const redirectUri = `${data.origin}/api/public/google/callback`;
-    const state = signState({ userId: context.userId, returnTo: data.returnTo });
+    const state = signState({ userId: context.userId, tenantId, returnTo: data.returnTo });
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -39,19 +53,23 @@ export const startGoogleOAuth = createServerFn({ method: "POST" })
     return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` };
   });
 
-/** Get the user's current Google connection status. */
+/** Get the active workspace's current Google connection status. */
 export const getGoogleStatus = createServerFn({ method: "GET" })
   .middleware([withSupabaseSession])
   .handler(async ({ context }) => {
-    // Defensive: middleware guarantees context.userId, but if anything
-    // upstream changes, return a safe "not connected" payload instead of
-    // letting an unhandled Response bubble up to the client.
     if (!context?.userId) {
+      return { connected: false, email: null, scope: null, updatedAt: null };
+    }
+    let tenantId: string;
+    try {
+      tenantId = await requireActiveTenant(context.userId);
+    } catch {
       return { connected: false, email: null, scope: null, updatedAt: null };
     }
     const { data, error } = await supabaseAdmin
       .from("google_tokens")
       .select("google_email, scope, updated_at")
+      .eq("tenant_id", tenantId)
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -63,17 +81,20 @@ export const getGoogleStatus = createServerFn({ method: "GET" })
     };
   });
 
-/** Disconnect: delete tokens. */
+/** Disconnect: delete tokens for the active workspace. */
 export const disconnectGoogle = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .handler(async ({ context }) => {
+    const tenantId = await requireActiveTenant(context.userId);
     const { error } = await supabaseAdmin
       .from("google_tokens")
       .delete()
+      .eq("tenant_id", tenantId)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { success: true };
   });
+
 
 const SendSchema = z.object({
   to: z.string().min(3).max(500),
@@ -110,7 +131,8 @@ export const sendGmail = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => SendSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const accessToken = await getValidAccessToken(context.userId);
+    const tenantId = await requireActiveTenant(context.userId);
+    const accessToken = await getValidAccessToken(context.userId, tenantId);
     if (!accessToken) {
       throw new Error("Google account not connected. Connect from Settings to send via Gmail.");
     }
@@ -119,6 +141,7 @@ export const sendGmail = createServerFn({ method: "POST" })
     const { data: tokenRow } = await supabaseAdmin
       .from("google_tokens")
       .select("google_email")
+      .eq("tenant_id", tenantId)
       .eq("user_id", context.userId)
       .maybeSingle();
     const fromEmail = tokenRow?.google_email ?? "me";
@@ -141,25 +164,17 @@ export const sendGmail = createServerFn({ method: "POST" })
     }
     const sent = (await res.json()) as { id: string; threadId: string };
 
-    // Log to emails table (scope to active tenant)
+    // Log to emails table
     try {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("active_tenant_id")
-        .eq("id", context.userId)
-        .maybeSingle();
-      const tenantId = profile?.active_tenant_id;
-      if (tenantId) {
-        await supabaseAdmin.from("emails").insert({
-          tenant_id: tenantId,
-          user_id: context.userId,
-          event_id: data.eventId ?? null,
-          subject: data.subject,
-          body: data.body,
-          sent_status: "sent",
-          template_used: "gmail_api",
-        });
-      }
+      await supabaseAdmin.from("emails").insert({
+        tenant_id: tenantId,
+        user_id: context.userId,
+        event_id: data.eventId ?? null,
+        subject: data.subject,
+        body: data.body,
+        sent_status: "sent",
+        template_used: "gmail_api",
+      });
     } catch (e) {
       // Non-fatal: log but still succeed
       console.error("Failed to log sent email:", e);
@@ -203,7 +218,8 @@ export const listGmailMessages = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => ListGmailSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<{ messages: GmailListItem[] }> => {
-    const accessToken = await getValidAccessToken(context.userId);
+    const tenantId = await requireActiveTenant(context.userId);
+    const accessToken = await getValidAccessToken(context.userId, tenantId);
     if (!accessToken) return { messages: [] };
 
     const params = new URLSearchParams({
@@ -277,7 +293,8 @@ export const listCalendarEvents = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => ListCalSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<{ events: CalEvent[] }> => {
-    const accessToken = await getValidAccessToken(context.userId);
+    const tenantId = await requireActiveTenant(context.userId);
+    const accessToken = await getValidAccessToken(context.userId, tenantId);
     if (!accessToken) return { events: [] };
 
     const timeMin = data.timeMin ?? new Date().toISOString();

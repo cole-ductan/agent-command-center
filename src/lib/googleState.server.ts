@@ -21,8 +21,8 @@ function fromB64url(s: string) {
   return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
 }
 
-/** Sign { userId, returnTo, ts } into a compact url-safe state string. */
-export function signState(payload: { userId: string; returnTo: string }) {
+/** Sign { userId, tenantId, returnTo, ts } into a compact url-safe state string. */
+export function signState(payload: { userId: string; tenantId: string; returnTo: string }) {
   const body = JSON.stringify({ ...payload, ts: Date.now() });
   const bodyB64 = b64url(body);
   const sig = crypto.createHmac("sha256", getSecret()).update(bodyB64).digest();
@@ -31,7 +31,9 @@ export function signState(payload: { userId: string; returnTo: string }) {
 }
 
 /** Verify state and return the original payload. Throws if invalid or older than 10 minutes. */
-export function verifyState(state: string): { userId: string; returnTo: string; ts: number } {
+export function verifyState(
+  state: string,
+): { userId: string; tenantId: string; returnTo: string; ts: number } {
   const [bodyB64, sigB64] = state.split(".");
   if (!bodyB64 || !sigB64) throw new Error("Invalid state format");
   const expectedSig = crypto.createHmac("sha256", getSecret()).update(bodyB64).digest();
@@ -44,6 +46,7 @@ export function verifyState(state: string): { userId: string; returnTo: string; 
   }
   const payload = JSON.parse(fromB64url(bodyB64).toString("utf8")) as {
     userId: string;
+    tenantId: string;
     returnTo: string;
     ts: number;
   };

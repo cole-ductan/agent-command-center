@@ -574,6 +574,7 @@ export type Database = {
           id: string
           refresh_token: string
           scope: string
+          tenant_id: string
           updated_at: string
           user_id: string
         }
@@ -585,6 +586,7 @@ export type Database = {
           id?: string
           refresh_token: string
           scope: string
+          tenant_id: string
           updated_at?: string
           user_id: string
         }
@@ -596,10 +598,19 @@ export type Database = {
           id?: string
           refresh_token?: string
           scope?: string
+          tenant_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "google_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       next_action_presets: {
         Row: {
@@ -934,6 +945,122 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "organizations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_decisions: {
+        Row: {
+          created_at: string
+          goto_slug: string
+          id: string
+          label: string
+          patch: Json
+          sort_order: number
+          step_id: string
+          tenant_id: string
+          updated_at: string
+          variant: string | null
+        }
+        Insert: {
+          created_at?: string
+          goto_slug: string
+          id?: string
+          label: string
+          patch?: Json
+          sort_order?: number
+          step_id: string
+          tenant_id: string
+          updated_at?: string
+          variant?: string | null
+        }
+        Update: {
+          created_at?: string
+          goto_slug?: string
+          id?: string
+          label?: string
+          patch?: Json
+          sort_order?: number
+          step_id?: string
+          tenant_id?: string
+          updated_at?: string
+          variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_decisions_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_steps: {
+        Row: {
+          callout_text: string | null
+          callout_tone: string | null
+          capture_keys: Json
+          checklist: Json
+          created_at: string
+          emoji: string | null
+          id: string
+          script_lines: Json
+          slug: string
+          sort_order: number
+          step_number: string
+          subtitle: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          callout_text?: string | null
+          callout_tone?: string | null
+          capture_keys?: Json
+          checklist?: Json
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          script_lines?: Json
+          slug: string
+          sort_order?: number
+          step_number: string
+          subtitle?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          callout_text?: string | null
+          callout_tone?: string | null
+          capture_keys?: Json
+          checklist?: Json
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          script_lines?: Json
+          slug?: string
+          sort_order?: number
+          step_number?: string
+          subtitle?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_steps_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1371,9 +1498,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_tenant_invite: { Args: { p_token: string }; Returns: Json }
       apply_template: {
         Args: { p_template_id: string; p_tenant_id: string }
         Returns: Json
+      }
+      is_tenant_admin: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
       }
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }

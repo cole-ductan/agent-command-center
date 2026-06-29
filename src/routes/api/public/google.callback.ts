@@ -78,6 +78,7 @@ export const Route = createFileRoute("/api/public/google/callback")({
 
           await upsertTokens({
             userId: payload.userId,
+            tenantId: payload.tenantId,
             accessToken: tokens.access_token,
             refreshToken: tokens.refresh_token,
             expiresIn: tokens.expires_in,

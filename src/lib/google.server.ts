@@ -87,15 +87,19 @@ export async function fetchGoogleEmail(accessToken: string): Promise<string | nu
 }
 
 /**
- * Get a valid (non-expired) access token for a user.
+ * Get a valid (non-expired) access token for a (tenant, user) connection.
  * Auto-refreshes if expired or about to expire (within 60s).
- * Returns null if the user has no connection.
+ * Returns null if there is no connection for that workspace.
  */
-export async function getValidAccessToken(userId: string): Promise<string | null> {
+export async function getValidAccessToken(
+  userId: string,
+  tenantId: string,
+): Promise<string | null> {
   const { data: row, error } = await supabaseAdmin
     .from("google_tokens")
     .select("*")
     .eq("user_id", userId)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (error) throw new Error(`Failed to load Google tokens: ${error.message}`);
@@ -117,14 +121,16 @@ export async function getValidAccessToken(userId: string): Promise<string | null
       expires_at: newExpiresAt,
       scope: refreshed.scope,
     })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("tenant_id", tenantId);
   if (updErr) throw new Error(`Failed to persist refreshed token: ${updErr.message}`);
   return refreshed.access_token;
 }
 
-/** Persist (insert or update) a token bundle for a user. */
+/** Persist (insert or update) a token bundle for a (tenant, user) pair. */
 export async function upsertTokens(args: {
   userId: string;
+  tenantId: string;
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
@@ -136,6 +142,7 @@ export async function upsertTokens(args: {
     .from("google_tokens")
     .upsert(
       {
+        tenant_id: args.tenantId,
         user_id: args.userId,
         access_token: args.accessToken,
         refresh_token: args.refreshToken,
@@ -143,7 +150,7 @@ export async function upsertTokens(args: {
         scope: args.scope,
         google_email: args.googleEmail,
       },
-      { onConflict: "user_id" },
+      { onConflict: "tenant_id,user_id" },
     );
   if (error) throw new Error(`Failed to save Google tokens: ${error.message}`);
 }
