@@ -131,7 +131,8 @@ export const sendGmail = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => SendSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const accessToken = await getValidAccessToken(context.userId);
+    const tenantId = await requireActiveTenant(context.userId);
+    const accessToken = await getValidAccessToken(context.userId, tenantId);
     if (!accessToken) {
       throw new Error("Google account not connected. Connect from Settings to send via Gmail.");
     }
@@ -140,6 +141,7 @@ export const sendGmail = createServerFn({ method: "POST" })
     const { data: tokenRow } = await supabaseAdmin
       .from("google_tokens")
       .select("google_email")
+      .eq("tenant_id", tenantId)
       .eq("user_id", context.userId)
       .maybeSingle();
     const fromEmail = tokenRow?.google_email ?? "me";
@@ -162,25 +164,17 @@ export const sendGmail = createServerFn({ method: "POST" })
     }
     const sent = (await res.json()) as { id: string; threadId: string };
 
-    // Log to emails table (scope to active tenant)
+    // Log to emails table
     try {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("active_tenant_id")
-        .eq("id", context.userId)
-        .maybeSingle();
-      const tenantId = profile?.active_tenant_id;
-      if (tenantId) {
-        await supabaseAdmin.from("emails").insert({
-          tenant_id: tenantId,
-          user_id: context.userId,
-          event_id: data.eventId ?? null,
-          subject: data.subject,
-          body: data.body,
-          sent_status: "sent",
-          template_used: "gmail_api",
-        });
-      }
+      await supabaseAdmin.from("emails").insert({
+        tenant_id: tenantId,
+        user_id: context.userId,
+        event_id: data.eventId ?? null,
+        subject: data.subject,
+        body: data.body,
+        sent_status: "sent",
+        template_used: "gmail_api",
+      });
     } catch (e) {
       // Non-fatal: log but still succeed
       console.error("Failed to log sent email:", e);
