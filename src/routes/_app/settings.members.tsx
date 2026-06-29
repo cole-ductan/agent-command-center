@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Trash2, Mail } from "lucide-react";
+import { Loader2, Trash2, Mail, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
 
 export const Route = createFileRoute("/_app/settings/members")({
   component: MembersPage,
