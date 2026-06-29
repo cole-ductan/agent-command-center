@@ -617,6 +617,8 @@ export type Database = {
           created_at: string
           id: string
           label: string
+          offset_days: number
+          slug: string | null
           sort_order: number
           tenant_id: string
           updated_at: string
@@ -626,6 +628,8 @@ export type Database = {
           created_at?: string
           id?: string
           label: string
+          offset_days?: number
+          slug?: string | null
           sort_order?: number
           tenant_id: string
           updated_at?: string
@@ -635,6 +639,8 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string
+          offset_days?: number
+          slug?: string | null
           sort_order?: number
           tenant_id?: string
           updated_at?: string
