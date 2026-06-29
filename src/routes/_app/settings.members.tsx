@@ -167,7 +167,8 @@ function MembersPage() {
           <CardHeader>
             <CardTitle>Invite teammate</CardTitle>
             <CardDescription>
-              Creates an invite token. (Email delivery is not wired up yet — share the invite link manually for now.)
+              Creates an invite token. Email delivery is not wired up yet — use &ldquo;Copy link&rdquo; in
+              the Pending invites list below and send it to the teammate manually.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-[1fr_140px_auto] md:items-end">
