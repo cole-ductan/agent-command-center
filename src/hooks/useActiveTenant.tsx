@@ -139,6 +139,7 @@ export function TenantGate({ children }: { children: ReactNode }) {
   const { loading, tenantId, memberships } = useActiveTenant();
   const { location } = useRouterState();
   if (location.pathname.startsWith("/onboarding")) return <>{children}</>;
+  if (location.pathname.startsWith("/settings/account")) return <>{children}</>;
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
