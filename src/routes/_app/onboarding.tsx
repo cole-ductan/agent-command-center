@@ -57,39 +57,21 @@ function OnboardingPage() {
     }
     setCreating(true);
     try {
-      const baseSlug = slugify(name);
-      let slug = baseSlug;
-      let attempt = 0;
-      while (true) {
-        const { data: existing } = await supabase.from("tenants").select("id").eq("slug", slug).maybeSingle();
-        if (!existing) break;
-        attempt += 1;
-        slug = `${baseSlug}-${attempt}`;
-      }
-
-      const { data: tenant, error } = await supabase
-        .from("tenants")
-        .insert({ name: name.trim(), slug, industry: industry.trim() || null, created_by: user.id })
-        .select()
-        .single();
+      const { data: result, error } = await supabase.rpc("create_workspace", {
+        p_name: name.trim(),
+        p_slug: slugify(name),
+        p_industry: industry.trim() || null,
+        p_template_id: selectedTemplate,
+      });
       if (error) throw error;
 
-      const { error: mErr } = await supabase
-        .from("tenant_members")
-        .insert({ tenant_id: tenant.id, user_id: user.id, role: "owner" });
-      if (mErr) throw mErr;
-
-      await supabase.from("profiles").update({ active_tenant_id: tenant.id }).eq("id", user.id);
+      const tenant = (result as any)?.tenant;
+      if (!tenant?.id) throw new Error("Workspace was created but no workspace was returned");
 
       // Apply chosen template (skip if "blank")
       const tpl = templates.find((t) => t.id === selectedTemplate);
       if (tpl && tpl.slug !== "blank") {
-        const { error: tErr } = await supabase.rpc("apply_template", {
-          p_tenant_id: tenant.id,
-          p_template_id: tpl.id,
-        });
-        if (tErr) console.warn("apply_template failed", tErr);
-        else toast.success(`Loaded "${tpl.name}" starter content`);
+        toast.success(`Loaded "${tpl.name}" starter content`);
       }
 
       await refresh();
