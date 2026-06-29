@@ -9,6 +9,19 @@ import {
 } from "@/lib/google.server";
 import { signState } from "@/lib/googleState.server";
 
+/** Resolve the signed-in user's active workspace, or throw. */
+async function requireActiveTenant(userId: string): Promise<string> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("active_tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const tenantId = data?.active_tenant_id;
+  if (!tenantId) throw new Error("No active workspace selected.");
+  return tenantId;
+}
+
 const StartSchema = z.object({
   origin: z.string().url(),
   returnTo: z.string().min(1).max(200),
