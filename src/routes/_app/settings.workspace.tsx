@@ -18,12 +18,15 @@ export const Route = createFileRoute("/_app/settings/workspace")({
 });
 
 function WorkspaceSettingsPage() {
+  const navigate = useNavigate();
   const { tenant, role, refresh } = useActiveTenant();
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [brandColor, setBrandColor] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
 
   useEffect(() => {
     if (tenant) {
