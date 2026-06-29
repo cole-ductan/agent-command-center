@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withSupabaseSession } from "@/integrations/supabase/serverfn-auth";
 
 /**
  * Deletes the signed-in user's account.
@@ -14,7 +14,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * message asking them to transfer ownership or remove members first.
  */
 export const deleteMyAccount = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withSupabaseSession])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
