@@ -130,14 +130,65 @@ function WorkspaceSettingsPage() {
             <Input id="industry" value={industry} onChange={(e) => setIndustry(e.target.value)} disabled={!canEdit} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="logo">Logo URL</Label>
-            <Input
-              id="logo"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://…/logo.png"
-              disabled={!canEdit}
-            />
+            <Label htmlFor="logo">Logo</Label>
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-secondary"
+                style={{ background: brandColor || undefined }}
+              >
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Workspace logo preview" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">No logo</span>
+                )}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Input
+                  id="logo"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://…/logo.png — or upload below"
+                  disabled={!canEdit || uploadingLogo}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadLogo(f);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!canEdit || uploadingLogo}
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    {uploadingLogo ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {uploadingLogo ? "Uploading…" : "Upload image"}
+                  </Button>
+                  {logoUrl && canEdit && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setLogoUrl("")}
+                    >
+                      <X className="mr-1.5 h-3.5 w-3.5" /> Clear
+                    </Button>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">PNG/JPG/SVG, max 2 MB. Square works best.</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="color">Brand color</Label>
