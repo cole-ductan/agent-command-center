@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Building2, Users, MessageSquareWarning, Layers, FileText } from "lucide-react";
+import { Building2, Users, MessageSquareWarning, Layers, FileText, UserCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsLayout,
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/settings/objections", label: "Objections", Icon: MessageSquareWarning },
   { to: "/settings/templates", label: "Templates", Icon: Layers },
   { to: "/settings/training-docs", label: "Training Docs", Icon: FileText },
+  { to: "/settings/account", label: "Account", Icon: UserCircle },
 ];
 
 function SettingsLayout() {
