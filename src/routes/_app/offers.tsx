@@ -66,7 +66,8 @@ type OfferPdf = {
 };
 
 function OffersPage() {
-  const { tenantId } = useActiveTenant();
+  const { tenantId, tenant } = useActiveTenant();
+  const catalogUrl = ((tenant?.settings as any)?.product_catalog_url as string | undefined) ?? "";
   const [offers, setOffers] = useState<Offer[]>([]);
   const [pdfs, setPdfs] = useState<OfferPdf[]>([]);
   const [loading, setLoading] = useState(true);
