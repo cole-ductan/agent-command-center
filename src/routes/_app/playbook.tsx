@@ -33,10 +33,16 @@ function PlaybookPage() {
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
 
   const refresh = () => {
+    if (!tenantId) {
+      setScript([]);
+      setOffers([]);
+      setTemplates([]);
+      return;
+    }
     Promise.all([
-      supabase.from("script_sections").select("*").order("sort_order"),
-      supabase.from("offers").select("*").order("sort_order"),
-      supabase.from("email_templates").select("*").order("name"),
+      supabase.from("script_sections").select("*").eq("tenant_id", tenantId).order("sort_order"),
+      supabase.from("offers").select("*").eq("tenant_id", tenantId).order("sort_order"),
+      supabase.from("email_templates").select("*").eq("tenant_id", tenantId).order("name"),
     ]).then(([s, o, t]) => {
       setScript((s.data ?? []) as ScriptRow[]);
       setOffers((o.data ?? []) as OfferRow[]);
@@ -46,7 +52,8 @@ function PlaybookPage() {
 
   useEffect(() => {
     refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
 
   const addTemplate = async () => {
     if (!user) {
