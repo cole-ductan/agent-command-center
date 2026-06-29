@@ -64,6 +64,7 @@ type OfferPdf = {
   name: string;
   url: string;
   offer_slug: string | null;
+  storage_path: string | null;
 };
 
 function OffersPage() {
