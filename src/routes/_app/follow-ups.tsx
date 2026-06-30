@@ -1,29 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { format, isSameDay, isToday, startOfDay } from "date-fns";
+import {
+  AlertTriangle,
+  Building2,
+  CalendarClock,
+  CalendarPlus,
+  Check,
+  Clock,
+  KanbanSquare,
+  Loader2,
+  Phone,
+  Plus,
+  RotateCcw,
+  UserRound,
+} from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
-import { StageChip } from "@/components/StageChip";
-import { AddLeadDialog } from "@/components/AddLeadDialog";
-import { Phone, AlertTriangle, CalendarClock, Check, Clock, Plus, Sparkles, MailQuestion, CalendarX, CalendarPlus, Trash2, Archive, ArchiveRestore } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { format, isToday, isSameDay, startOfDay, subHours, subDays } from "date-fns";
-import { type Stage } from "@/lib/stages";
-import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { openGCal } from "@/lib/gcal";
+import {
+  QuickAddCrmDialog,
+  type CompanyOption,
+  type OpportunityOption,
+  type PersonOption,
+} from "@/components/QuickAddCrmDialog";
 
 export const Route = createFileRoute("/_app/follow-ups")({
   component: FollowUpsPage,
@@ -31,172 +36,181 @@ export const Route = createFileRoute("/_app/follow-ups")({
 
 type Task = {
   id: string;
+  company_id: string | null;
+  person_id: string | null;
+  opportunity_id: string | null;
   next_action: string;
   next_action_at: string;
-  priority: "low" | "normal" | "high" | "urgent";
+  priority: "low" | "normal" | "high" | "urgent" | null;
   status: "pending" | "done" | "snoozed";
-  events: { id: string; event_name: string; stage: Stage; archived?: boolean } | null;
 };
 
-type LeadEvent = {
-  id: string;
-  event_name: string;
-  stage: Stage;
-  created_at: string;
-  last_contact_at: string | null;
-  course: string | null;
-  archived?: boolean;
-};
+type Lookup = { id: string; name: string };
+type PersonLookup = { id: string; full_name: string };
 
 function FollowUpsPage() {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [allEvents, setAllEvents] = useState<LeadEvent[]>([]);
+  const [companies, setCompanies] = useState<Lookup[]>([]);
+  const [people, setPeople] = useState<PersonLookup[]>([]);
+  const [opportunities, setOpportunities] = useState<Lookup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [addLeadOpen, setAddLeadOpen] = useState(false);
-  const [addLeadDate, setAddLeadDate] = useState<string | undefined>(undefined);
-  const [showArchived, setShowArchived] = useState(false);
+  const [showDone, setShowDone] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
-  const openAddLeadFor = (d?: Date) => {
-    setAddLeadDate(d ? format(d, "yyyy-MM-dd") : undefined);
-    setAddLeadOpen(true);
-  };
+  const companyById = useMemo(() => new Map(companies.map((company) => [company.id, company.name])), [companies]);
+  const personById = useMemo(() => new Map(people.map((person) => [person.id, person.full_name])), [people]);
+  const opportunityById = useMemo(() => new Map(opportunities.map((opportunity) => [opportunity.id, opportunity.name])), [opportunities]);
 
   const load = useCallback(async () => {
     if (!tenantId) {
       setTasks([]);
-      setAllEvents([]);
+      setCompanies([]);
+      setPeople([]);
+      setOpportunities([]);
       setLoading(false);
       return;
     }
-    const [tasksRes, eventsRes] = await Promise.all([
-      supabase
+
+    setLoading(true);
+    try {
+      const db = supabase as unknown as { from: (table: string) => any };
+      const taskQuery = db
         .from("tasks")
-        .select("id,next_action,next_action_at,priority,status,event_id,events(id,event_name,stage,archived)")
+        .select("id,company_id,person_id,opportunity_id,next_action,next_action_at,priority,status")
         .eq("tenant_id", tenantId)
-        .eq("status", "pending")
-        .order("next_action_at", { ascending: true }),
-      supabase
-        .from("events")
-        .select("id,event_name,stage,created_at,last_contact_at,course,archived")
-        .eq("tenant_id", tenantId)
-        .not("stage", "in", "(closed_won,closed_lost)")
-        .order("created_at", { ascending: false }),
-    ]);
-    setTasks((tasksRes.data ?? []) as any);
-    setAllEvents((eventsRes.data ?? []) as any);
-    setLoading(false);
-  }, [tenantId]);
-  useEffect(() => { load(); }, [load]);
+        .order("next_action_at", { ascending: true });
+
+      const [taskResult, companyResult, peopleResult, opportunityResult] = await Promise.all([
+        showDone ? taskQuery : taskQuery.eq("status", "pending"),
+        db.from("companies").select("id,name").eq("tenant_id", tenantId).order("name", { ascending: true }).limit(500),
+        db.from("people").select("id,full_name").eq("tenant_id", tenantId).order("full_name", { ascending: true }).limit(500),
+        db.from("opportunities").select("id,name").eq("tenant_id", tenantId).order("name", { ascending: true }).limit(500),
+      ]);
+
+      if (taskResult.error) throw taskResult.error;
+      if (companyResult.error) throw companyResult.error;
+      if (peopleResult.error) throw peopleResult.error;
+      if (opportunityResult.error) throw opportunityResult.error;
+
+      setTasks((taskResult.data ?? []) as Task[]);
+      setCompanies((companyResult.data ?? []) as Lookup[]);
+      setPeople((peopleResult.data ?? []) as PersonLookup[]);
+      setOpportunities((opportunityResult.data ?? []) as Lookup[]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unable to load follow-ups");
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId, showDone]);
+
+  useEffect(() => {
+    if (user) void load();
+  }, [user, load]);
 
   const groups = useMemo(() => {
-    const visible = tasks.filter((t) => showArchived || !t.events?.archived);
+    const pending = tasks.filter((task) => task.status === "pending");
     const now = new Date();
-    const overdue = visible.filter((t) => new Date(t.next_action_at) < now);
-    const today = visible.filter((t) => {
-      const dueAt = new Date(t.next_action_at);
+    const overdue = pending.filter((task) => new Date(task.next_action_at) < now);
+    const today = pending.filter((task) => {
+      const dueAt = new Date(task.next_action_at);
       return dueAt >= now && isToday(dueAt);
     });
-    const upcoming = visible.filter((t) => {
-      const dueAt = new Date(t.next_action_at);
+    const upcoming = pending.filter((task) => {
+      const dueAt = new Date(task.next_action_at);
       return dueAt >= now && !isToday(dueAt);
     });
-    return { overdue, today, upcoming };
-  }, [tasks, showArchived]);
-
-  const leadGroups = useMemo(() => {
-    const visibleEvents = allEvents.filter((e) => showArchived || !e.archived);
-    const eventIdsWithTasks = new Set(tasks.map((t) => t.events?.id).filter(Boolean));
-    const cutoff48h = subHours(new Date(), 48);
-    const cutoff3d = subDays(new Date(), 3);
-
-    const justAdded = visibleEvents.filter(
-      (e) => new Date(e.created_at) > cutoff48h && !eventIdsWithTasks.has(e.id),
-    );
-    const awaitingResponse = visibleEvents.filter(
-      (e) =>
-        (e.stage === "pitch_delivered" || e.stage === "proposal_sent") &&
-        (!e.last_contact_at || new Date(e.last_contact_at) < cutoff3d),
-    );
-    const noDateSet = visibleEvents.filter((e) => !eventIdsWithTasks.has(e.id));
-
-    return { justAdded, awaitingResponse, noDateSet };
-  }, [allEvents, tasks, showArchived]);
+    const done = tasks.filter((task) => task.status === "done");
+    return { overdue, today, upcoming, done };
+  }, [tasks]);
 
   const tasksByDay = useMemo(() => {
-    const map: Map<string, Task[]> = new Map();
-    tasks.forEach((t) => {
-      const key = format(startOfDay(new Date(t.next_action_at)), "yyyy-MM-dd");
+    const map = new Map<string, Task[]>();
+    tasks.forEach((task) => {
+      if (task.status !== "pending") return;
+      const key = format(startOfDay(new Date(task.next_action_at)), "yyyy-MM-dd");
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(t);
+      map.get(key)!.push(task);
     });
     return map;
   }, [tasks]);
 
   const selectedTasks = selectedDate
-    ? tasks.filter((t) => isSameDay(new Date(t.next_action_at), selectedDate))
+    ? tasks.filter((task) => task.status === "pending" && isSameDay(new Date(task.next_action_at), selectedDate))
     : [];
 
+  const companyOptions = companies.map((company) => ({ id: company.id, name: company.name })) as CompanyOption[];
+  const peopleOptions = people.map((person) => ({ id: person.id, full_name: person.full_name })) as PersonOption[];
+  const opportunityOptions = opportunities.map((opportunity) => ({ id: opportunity.id, name: opportunity.name })) as OpportunityOption[];
+
   const completeTask = async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, status: "done" } : task)));
     const { error } = await supabase.from("tasks").update({ status: "done" }).eq("id", id);
-    if (error) { toast.error("Failed"); load(); } else toast.success("Marked done");
+    if (error) {
+      toast.error("Failed to complete task");
+      void load();
+    } else {
+      toast.success("Marked done");
+    }
+  };
+
+  const restoreTask = async (id: string) => {
+    setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, status: "pending" } : task)));
+    const { error } = await supabase.from("tasks").update({ status: "pending" }).eq("id", id);
+    if (error) {
+      toast.error("Failed to restore task");
+      void load();
+    } else {
+      toast.success("Task restored");
+    }
   };
 
   const snoozeTask = async (id: string, hours: number) => {
-    const newAt = new Date(Date.now() + hours * 3600000).toISOString();
-    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, next_action_at: newAt } : t));
-    const { error } = await supabase.from("tasks").update({ next_action_at: newAt }).eq("id", id);
-    if (error) { toast.error("Failed"); load(); } else toast.success(`Snoozed ${hours}h`);
-  };
-
-  const deleteEvent = async (eventId: string) => {
-    setTasks((prev) => prev.filter((t) => t.events?.id !== eventId));
-    setAllEvents((prev) => prev.filter((e) => e.id !== eventId));
-    const { error } = await supabase.from("events").delete().eq("id", eventId);
-    if (error) { toast.error("Delete failed: " + error.message); load(); }
-    else toast.success("Event deleted");
-  };
-
-  const archiveEvent = async (eventId: string, archived: boolean) => {
-    setAllEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, archived } : e));
-    setTasks((prev) => prev.map((t) => t.events?.id === eventId ? { ...t, events: { ...t.events!, archived } } : t));
-    const patch: any = { archived, archived_at: archived ? new Date().toISOString() : null };
-    const { error } = await supabase.from("events").update(patch).eq("id", eventId);
-    if (error) { toast.error("Archive failed: " + error.message); load(); }
-    else toast.success(archived ? "Event archived" : "Event restored");
+    const newAt = new Date(Date.now() + hours * 3_600_000).toISOString();
+    setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, next_action_at: newAt, status: "pending" } : task)));
+    const { error } = await supabase.from("tasks").update({ next_action_at: newAt, status: "pending" }).eq("id", id);
+    if (error) {
+      toast.error("Failed to snooze task");
+      void load();
+    } else {
+      toast.success(`Snoozed ${hours === 1 ? "+1h" : "+1d"}`);
+    }
   };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">RepPilot Core CRM</p>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">Follow-Ups</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Stay on top of every callback, email, and check-in.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Neutral next actions across opportunities, companies, and people.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={showArchived ? "default" : "outline"}
-            onClick={() => setShowArchived((v) => !v)}
-          >
-            <Archive className="mr-1.5 h-4 w-4" />
-            {showArchived ? "Hiding archived" : "Show archived"}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant={showDone ? "default" : "outline"} onClick={() => setShowDone((value) => !value)}>
+            <RotateCcw className="mr-1.5 h-4 w-4" />
+            {showDone ? "Showing done" : "Show done"}
           </Button>
-          <Button size="sm" onClick={() => openAddLeadFor()}>
-            <Plus className="mr-1.5 h-4 w-4" />Add Lead
+          <Button size="sm" variant="outline" asChild>
+            <Link to="/start-call"><Plus className="mr-1.5 h-4 w-4" />New Opportunity</Link>
+          </Button>
+          <Button size="sm" onClick={() => setTaskDialogOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />New Task
           </Button>
         </div>
       </header>
 
-      <AddLeadDialog
-        trigger={null}
-        open={addLeadOpen}
-        onOpenChange={setAddLeadOpen}
-        defaultDate={addLeadDate}
-        onCreated={() => load()}
+      <QuickAddCrmDialog
+        open={taskDialogOpen}
+        kind="task"
+        tenantId={tenantId}
+        userId={user?.id}
+        companies={companyOptions}
+        people={peopleOptions}
+        opportunities={opportunityOptions}
+        onOpenChange={setTaskDialogOpen}
+        onCreated={load}
       />
 
       <Tabs defaultValue="list" className="w-full">
@@ -207,38 +221,13 @@ function FollowUpsPage() {
 
         <TabsContent value="list" className="mt-6 space-y-6">
           {loading ? (
-            <div className="text-muted-foreground">Loading…</div>
+            <StateMessage icon={<Loader2 className="h-4 w-4 animate-spin" />}>Loading follow-ups…</StateMessage>
           ) : (
             <>
-              <Group title="Overdue" icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tasks={groups.overdue} accent="destructive" onComplete={completeTask} onSnooze={snoozeTask} onDelete={deleteEvent} onArchive={archiveEvent} />
-              <Group title="Today" icon={<CalendarClock className="h-4 w-4" style={{ color: "var(--gold)" }} />} tasks={groups.today} onComplete={completeTask} onSnooze={snoozeTask} onDelete={deleteEvent} onArchive={archiveEvent} />
-              <Group title="Upcoming" icon={<Clock className="h-4 w-4 text-muted-foreground" />} tasks={groups.upcoming} onComplete={completeTask} onSnooze={snoozeTask} onDelete={deleteEvent} onArchive={archiveEvent} />
-
-              <LeadGroup
-                title="Leads Just Added"
-                description="Added in the last 48 hours with no follow-up scheduled."
-                icon={<Sparkles className="h-4 w-4 text-primary" />}
-                events={leadGroups.justAdded}
-                onDelete={deleteEvent}
-                onArchive={archiveEvent}
-              />
-              <LeadGroup
-                title="Awaiting Response"
-                description="Pitch or proposal sent — no contact logged in the last 3 days."
-                icon={<MailQuestion className="h-4 w-4" style={{ color: "var(--stage-pitch)" }} />}
-                events={leadGroups.awaitingResponse}
-                onDelete={deleteEvent}
-                onArchive={archiveEvent}
-              />
-              <LeadGroup
-                title="No Date Set"
-                description="Active leads with zero follow-up date assigned."
-                icon={<CalendarX className="h-4 w-4" style={{ color: "var(--gold)" }} />}
-                events={leadGroups.noDateSet}
-                accent="warning"
-                onDelete={deleteEvent}
-                onArchive={archiveEvent}
-              />
+              <Group title="Overdue" icon={<AlertTriangle className="h-4 w-4 text-destructive" />} tasks={groups.overdue} companyById={companyById} personById={personById} opportunityById={opportunityById} onComplete={completeTask} onSnooze={snoozeTask} accent="danger" />
+              <Group title="Today" icon={<CalendarClock className="h-4 w-4 text-primary" />} tasks={groups.today} companyById={companyById} personById={personById} opportunityById={opportunityById} onComplete={completeTask} onSnooze={snoozeTask} />
+              <Group title="Upcoming" icon={<Clock className="h-4 w-4 text-muted-foreground" />} tasks={groups.upcoming} companyById={companyById} personById={personById} opportunityById={opportunityById} onComplete={completeTask} onSnooze={snoozeTask} />
+              {showDone && <DoneGroup tasks={groups.done} companyById={companyById} personById={personById} opportunityById={opportunityById} onRestore={restoreTask} />}
             </>
           )}
         </TabsContent>
@@ -251,7 +240,7 @@ function FollowUpsPage() {
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 modifiers={{
-                  hasTasks: Array.from(tasksByDay.keys()).map((k) => new Date(k + "T12:00:00")),
+                  hasTasks: Array.from(tasksByDay.keys()).map((key) => new Date(`${key}T12:00:00`)),
                 }}
                 modifiersClassNames={{
                   hasTasks: "relative font-semibold after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary",
@@ -263,30 +252,18 @@ function FollowUpsPage() {
                 <h2 className="font-display text-lg font-semibold">
                   {selectedDate ? format(selectedDate, "EEEE, MMM d") : "Pick a date"}
                 </h2>
-                {selectedDate && (
-                  <Button size="sm" variant="outline" onClick={() => openAddLeadFor(selectedDate)}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />Add lead
-                  </Button>
-                )}
+                <Button size="sm" variant="outline" onClick={() => setTaskDialogOpen(true)}>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />New Task
+                </Button>
               </div>
               {selectedTasks.length === 0 ? (
                 <div className="mt-4 rounded-md bg-secondary/50 px-3 py-6 text-center text-sm text-muted-foreground">
-                  <div>Nothing scheduled for this day.</div>
-                  {selectedDate && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="mt-2"
-                      onClick={() => openAddLeadFor(selectedDate)}
-                    >
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />Add a lead for this date
-                    </Button>
-                  )}
+                  Nothing scheduled for this day.
                 </div>
               ) : (
                 <ul className="mt-4 divide-y">
-                  {selectedTasks.map((t) => (
-                    <TaskRow key={t.id} t={t} onComplete={completeTask} onSnooze={snoozeTask} onDelete={deleteEvent} onArchive={archiveEvent} />
+                  {selectedTasks.map((task) => (
+                    <TaskRow key={task.id} task={task} companyById={companyById} personById={personById} opportunityById={opportunityById} onComplete={completeTask} onSnooze={snoozeTask} />
                   ))}
                 </ul>
               )}
@@ -299,20 +276,29 @@ function FollowUpsPage() {
 }
 
 function Group({
-  title, icon, tasks, accent, onComplete, onSnooze, onDelete, onArchive,
+  title,
+  icon,
+  tasks,
+  companyById,
+  personById,
+  opportunityById,
+  onComplete,
+  onSnooze,
+  accent,
 }: {
   title: string;
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
   tasks: Task[];
-  accent?: "destructive";
+  companyById: Map<string, string>;
+  personById: Map<string, string>;
+  opportunityById: Map<string, string>;
   onComplete: (id: string) => void;
-  onSnooze: (id: string, h: number) => void;
-  onDelete: (eventId: string) => void;
-  onArchive: (eventId: string, archived: boolean) => void;
+  onSnooze: (id: string, hours: number) => void;
+  accent?: "danger";
 }) {
   return (
     <section className="rounded-xl border bg-card shadow-[var(--shadow-card)]">
-      <header className="flex items-center justify-between px-5 py-3 border-b">
+      <header className="flex items-center justify-between border-b px-5 py-3">
         <div className="flex items-center gap-2">
           {icon}
           <h2 className="font-display text-lg font-semibold">{title}</h2>
@@ -323,7 +309,49 @@ function Group({
         <div className="px-5 py-6 text-sm text-muted-foreground">Nothing here.</div>
       ) : (
         <ul className="divide-y">
-          {tasks.map((t) => <TaskRow key={t.id} t={t} accent={accent} onComplete={onComplete} onSnooze={onSnooze} onDelete={onDelete} onArchive={onArchive} />)}
+          {tasks.map((task) => (
+            <TaskRow key={task.id} task={task} companyById={companyById} personById={personById} opportunityById={opportunityById} onComplete={onComplete} onSnooze={onSnooze} accent={accent} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function DoneGroup({
+  tasks,
+  companyById,
+  personById,
+  opportunityById,
+  onRestore,
+}: {
+  tasks: Task[];
+  companyById: Map<string, string>;
+  personById: Map<string, string>;
+  opportunityById: Map<string, string>;
+  onRestore: (id: string) => void;
+}) {
+  return (
+    <section className="rounded-xl border bg-card shadow-[var(--shadow-card)]">
+      <header className="flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center gap-2">
+          <Check className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-lg font-semibold">Done</h2>
+        </div>
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-mono text-muted-foreground">{tasks.length}</span>
+      </header>
+      {tasks.length === 0 ? (
+        <div className="px-5 py-6 text-sm text-muted-foreground">No completed tasks in this view.</div>
+      ) : (
+        <ul className="divide-y">
+          {tasks.map((task) => (
+            <li key={task.id} className="flex items-center gap-3 px-5 py-3 opacity-70">
+              <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => onRestore(task.id)} aria-label="Restore task">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+              <TaskSummary task={task} companyById={companyById} personById={personById} opportunityById={opportunityById} />
+            </li>
+          ))}
         </ul>
       )}
     </section>
@@ -331,46 +359,42 @@ function Group({
 }
 
 function TaskRow({
-  t, accent, onComplete, onSnooze, onDelete, onArchive,
+  task,
+  companyById,
+  personById,
+  opportunityById,
+  onComplete,
+  onSnooze,
+  accent,
 }: {
-  t: Task;
-  accent?: "destructive";
+  task: Task;
+  companyById: Map<string, string>;
+  personById: Map<string, string>;
+  opportunityById: Map<string, string>;
   onComplete: (id: string) => void;
-  onSnooze: (id: string, h: number) => void;
-  onDelete: (eventId: string) => void;
-  onArchive: (eventId: string, archived: boolean) => void;
+  onSnooze: (id: string, hours: number) => void;
+  accent?: "danger";
 }) {
+  const opportunityName = task.opportunity_id ? opportunityById.get(task.opportunity_id) : null;
   return (
-    <li className={`px-3 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 ${t.events?.archived ? "opacity-60" : ""}`}>
-      <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" onClick={() => onComplete(t.id)} aria-label="Complete">
+    <li className="flex items-center gap-3 px-3 py-3 sm:px-5">
+      <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => onComplete(task.id)} aria-label="Complete task">
         <Check className="h-3.5 w-3.5" />
       </Button>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span className={`font-mono ${accent === "destructive" ? "text-destructive" : "text-muted-foreground"}`}>
-            {format(new Date(t.next_action_at), "MMM d · h:mm a")}
-          </span>
-          {t.events && <StageChip stage={t.events.stage} />}
-          {t.events?.archived && (
-            <span className="rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Archived
-            </span>
-          )}
-          {t.priority !== "normal" && (
-            <span className="rounded-full px-1.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider"
-              style={{
-                backgroundColor: t.priority === "urgent" ? "color-mix(in oklch, var(--clay) 18%, transparent)" : "var(--secondary)",
-                color: t.priority === "urgent" ? "var(--clay)" : "var(--muted-foreground)",
-              }}>{t.priority}</span>
-          )}
-        </div>
-        <div className="mt-0.5 truncate font-medium text-sm">{t.events?.event_name ?? "—"}</div>
-        <div className="text-xs text-muted-foreground truncate">{t.next_action}</div>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <Button asChild size="sm" variant="default" className="h-8 w-8 p-0">
-          <Link to="/call" search={{ eventId: t.events?.id }}><Phone className="h-3.5 w-3.5" /></Link>
-        </Button>
+      <TaskSummary task={task} companyById={companyById} personById={personById} opportunityById={opportunityById} accent={accent} />
+      <div className="flex shrink-0 items-center gap-1">
+        {task.opportunity_id && (
+          <Button asChild size="sm" variant="default" className="h-8 w-8 p-0" title="Start call">
+            <Link to="/live-call" search={{ opportunityId: task.opportunity_id }}><Phone className="h-3.5 w-3.5" /></Link>
+          </Button>
+        )}
+        {task.opportunity_id && (
+          <Button asChild size="sm" variant="ghost" className="hidden h-8 px-2 text-xs sm:inline-flex">
+            <Link to="/opportunity-detail" search={{ opportunityId: task.opportunity_id }}>
+              View
+            </Link>
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -378,146 +402,83 @@ function TaskRow({
           title="Add to Google Calendar"
           onClick={() =>
             openGCal({
-              title: `${t.next_action}${t.events ? ` — ${t.events.event_name}` : ""}`,
-              details: t.events?.event_name ?? "",
-              start: new Date(t.next_action_at),
+              title: `${task.next_action}${opportunityName ? ` — ${opportunityName}` : ""}`,
+              details: buildTaskDetails(task, companyById, personById, opportunityById),
+              start: new Date(task.next_action_at),
             })
           }
         >
           <CalendarPlus className="h-3.5 w-3.5" />
         </Button>
-        <div className="hidden sm:flex gap-1">
-          <Button size="sm" variant="ghost" className="text-xs" onClick={() => onSnooze(t.id, 1)}>+1h</Button>
-          <Button size="sm" variant="ghost" className="text-xs" onClick={() => onSnooze(t.id, 24)}>+1d</Button>
+        <div className="hidden gap-1 sm:flex">
+          <Button size="sm" variant="ghost" className="text-xs" onClick={() => onSnooze(task.id, 1)}>+1h</Button>
+          <Button size="sm" variant="ghost" className="text-xs" onClick={() => onSnooze(task.id, 24)}>+1d</Button>
         </div>
-        {t.events?.id && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-            title={t.events.archived ? "Restore from archive" : "Archive event"}
-            onClick={() => onArchive(t.events!.id, !t.events!.archived)}
-          >
-            {t.events.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-          </Button>
-        )}
-        {t.events?.id && (
-          <DeleteEventButton
-            eventName={t.events.event_name}
-            onConfirm={() => onDelete(t.events!.id)}
-          />
-        )}
       </div>
     </li>
   );
 }
 
-function DeleteEventButton({ eventName, onConfirm }: { eventName: string; onConfirm: () => void }) {
+function TaskSummary({
+  task,
+  companyById,
+  personById,
+  opportunityById,
+  accent,
+}: {
+  task: Task;
+  companyById: Map<string, string>;
+  personById: Map<string, string>;
+  opportunityById: Map<string, string>;
+  accent?: "danger";
+}) {
+  const companyName = task.company_id ? companyById.get(task.company_id) : null;
+  const personName = task.person_id ? personById.get(task.person_id) : null;
+  const opportunityName = task.opportunity_id ? opportunityById.get(task.opportunity_id) : null;
+
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-          title="Delete event"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete this event?</AlertDialogTitle>
-          <AlertDialogDescription>
-            "{eventName}" and all its tasks, calls, and notes will be permanently deleted. This cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span className={`font-mono ${accent === "danger" ? "text-destructive" : "text-muted-foreground"}`}>
+          {format(new Date(task.next_action_at), "MMM d · h:mm a")}
+        </span>
+        {task.priority && task.priority !== "normal" && <PriorityBadge priority={task.priority} />}
+      </div>
+      <div className="mt-0.5 truncate font-medium text-sm">{task.next_action}</div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <MiniLine icon={<KanbanSquare className="h-3.5 w-3.5" />} value={opportunityName ?? "No opportunity"} />
+        <MiniLine icon={<Building2 className="h-3.5 w-3.5" />} value={companyName ?? "No company"} />
+        <MiniLine icon={<UserRound className="h-3.5 w-3.5" />} value={personName ?? "No person"} />
+      </div>
+    </div>
   );
 }
 
-function LeadGroup({
-  title, description, icon, events, accent, onDelete, onArchive,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  events: LeadEvent[];
-  accent?: "warning";
-  onDelete: (eventId: string) => void;
-  onArchive: (eventId: string, archived: boolean) => void;
-}) {
+function MiniLine({ icon, value }: { icon: React.ReactNode; value: string }) {
+  return <span className="flex min-w-0 items-center gap-1">{icon}<span className="truncate">{value}</span></span>;
+}
+
+function PriorityBadge({ priority }: { priority: NonNullable<Task["priority"]> }) {
   return (
-    <section className="rounded-xl border bg-card shadow-[var(--shadow-card)]">
-      <header className="flex items-start justify-between gap-3 px-5 py-3 border-b">
-        <div className="flex items-start gap-2">
-          <div className="mt-0.5">{icon}</div>
-          <div>
-            <h2 className="font-display text-lg font-semibold">{title}</h2>
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
-        </div>
-        <span
-          className="rounded-full px-2 py-0.5 text-xs font-mono"
-          style={{
-            backgroundColor: accent === "warning" ? "color-mix(in oklch, var(--gold) 18%, transparent)" : "var(--secondary)",
-            color: accent === "warning" ? "color-mix(in oklch, var(--gold) 50%, var(--foreground))" : "var(--muted-foreground)",
-          }}
-        >
-          {events.length}
-        </span>
-      </header>
-      {events.length === 0 ? (
-        <div className="px-5 py-6 text-sm text-muted-foreground">Nothing here.</div>
-      ) : (
-        <ul className="divide-y">
-          {events.map((e) => (
-            <li key={e.id} className={`px-5 py-3 flex items-center gap-3 ${e.archived ? "opacity-60" : ""}`}>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-xs">
-                  <StageChip stage={e.stage} />
-                  {e.archived && (
-                    <span className="rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Archived
-                    </span>
-                  )}
-                  <span className="text-muted-foreground font-mono">
-                    Added {format(new Date(e.created_at), "MMM d")}
-                  </span>
-                </div>
-                <div className="mt-0.5 truncate font-medium">{e.event_name}</div>
-                {e.course && <div className="text-xs text-muted-foreground truncate">{e.course}</div>}
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button asChild size="sm" variant="default">
-                  <Link to="/call" search={{ eventId: e.id }}><Phone className="h-3.5 w-3.5" /></Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                  title={e.archived ? "Restore from archive" : "Archive event"}
-                  onClick={() => onArchive(e.id, !e.archived)}
-                >
-                  {e.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-                </Button>
-                <DeleteEventButton eventName={e.event_name} onConfirm={() => onDelete(e.id)} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {priority}
+    </span>
   );
+}
+
+function StateMessage({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-[var(--shadow-card)]">
+      {icon}
+      {children}
+    </div>
+  );
+}
+
+function buildTaskDetails(task: Task, companyById: Map<string, string>, personById: Map<string, string>, opportunityById: Map<string, string>) {
+  return [
+    task.opportunity_id ? `Opportunity: ${opportunityById.get(task.opportunity_id) ?? task.opportunity_id}` : null,
+    task.company_id ? `Company: ${companyById.get(task.company_id) ?? task.company_id}` : null,
+    task.person_id ? `Person: ${personById.get(task.person_id) ?? task.person_id}` : null,
+  ].filter(Boolean).join("\n");
 }
