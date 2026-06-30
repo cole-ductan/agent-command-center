@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Building2, CalendarDays, KanbanSquare, Loader2, Phone, UserRound } from "lucide-react";
+import { Building2, CalendarDays, KanbanSquare, Loader2, Phone, Plus, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -91,9 +91,14 @@ function OpportunitiesPage() {
           <h1 className="font-display text-3xl font-semibold md:text-4xl">Opportunities</h1>
           <p className="mt-1 text-sm text-muted-foreground">Sales opportunities connected to companies, people, tasks, and notes.</p>
         </div>
-        <Button asChild variant="outline">
-          <Link to="/">Back to dashboard</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link to="/start-call"><Plus className="mr-2 h-4 w-4" />New Opportunity</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/">Back to dashboard</Link>
+          </Button>
+        </div>
       </header>
 
       {loading ? (
@@ -101,7 +106,7 @@ function OpportunitiesPage() {
       ) : error ? (
         <StateMessage tone="error">{error}</StateMessage>
       ) : opportunities.length === 0 ? (
-        <EmptyState title="No opportunities yet" body="Use Quick Add on the dashboard to create your first opportunity." />
+        <EmptyState title="No opportunities yet" body="Use New Opportunity to create your first sales opportunity." />
       ) : (
         <div className="space-y-4">
           {opportunities.map((opportunity) => (
@@ -113,7 +118,7 @@ function OpportunitiesPage() {
                       <KanbanSquare className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <Link to="/opportunities/$opportunityId" params={{ opportunityId: opportunity.id }} className="truncate font-display text-lg font-semibold hover:text-primary">
+                      <Link to="/opportunity-detail" search={{ opportunityId: opportunity.id }} className="truncate font-display text-lg font-semibold hover:text-primary">
                         {opportunity.name}
                       </Link>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -141,7 +146,7 @@ function OpportunitiesPage() {
                   )}
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/opportunities/$opportunityId" params={{ opportunityId: opportunity.id }}>View</Link>
+                      <Link to="/opportunity-detail" search={{ opportunityId: opportunity.id }}>View</Link>
                     </Button>
                     <Button asChild size="sm">
                       <Link to="/live-call" search={{ opportunityId: opportunity.id }}>
