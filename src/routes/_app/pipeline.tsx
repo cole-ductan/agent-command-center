@@ -67,10 +67,10 @@ const GROUPS: { id: GroupId; label: string; stages: Stage[]; tooltip?: string }[
 
 // Tooltips for jargon stages
 const STAGE_TOOLTIPS: Partial<Record<Stage, string>> = {
-  cgt_created: "Charity Golf Today — the free tournament management platform created for the lead.",
-  challenges_booked: "Par 3 (Dixon Challenge) and/or Par 5 (Aurelius Challenge) on-course games confirmed.",
-  pitch_delivered: "Full pitch delivered — Amateur Endorsement, on-course games, CGT, and custom products.",
-  proposal_sent: "Formal proposal / sponsorship doc sent — awaiting their decision.",
+  cgt_created: "Account or workspace created for the lead.",
+  challenges_booked: "Demo or working session booked.",
+  pitch_delivered: "Full pitch / discovery completed.",
+  proposal_sent: "Formal proposal sent — awaiting their decision.",
 };
 
 // Estimated value: entry_fee × player_count (or 0)
