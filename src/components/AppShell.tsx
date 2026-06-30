@@ -192,6 +192,14 @@ function AppShellInner() {
 
   const onOnboarding = location.pathname.startsWith("/onboarding");
 
+  useEffect(() => {
+    const search = location.search as Record<string, unknown>;
+    const hasExistingEvent = Boolean(search?.eventId);
+    if (location.pathname === "/call" && !hasExistingEvent) {
+      navigate({ to: "/start-call", replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
+
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
       <AppSidebar onOnboarding={onOnboarding} />
