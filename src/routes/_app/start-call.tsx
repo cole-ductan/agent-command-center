@@ -1,16 +1,24 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Phone } from "lucide-react";
+import { Loader2, Phone } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { createStartOpportunity } from "@/lib/startOpportunity";
 
 export const Route = createFileRoute("/_app/start-call")({
   component: StartCallPage,
 });
 
 function StartCallPage() {
+  const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
+  const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
   const [opportunityName, setOpportunityName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -21,6 +29,34 @@ function StartCallPage() {
   const [estimatedValue, setEstimatedValue] = useState("");
   const [notes, setNotes] = useState("");
 
+  const submit = async () => {
+    if (!user || !tenantId) return toast.error("No active workspace");
+    if (!opportunityName.trim()) return toast.error("Opportunity name is required");
+    const valueAmount = estimatedValue.trim() ? Number(estimatedValue) : null;
+    if (valueAmount !== null && Number.isNaN(valueAmount)) return toast.error("Estimated value must be a number");
+    setSaving(true);
+    try {
+      await createStartOpportunity({
+        tenantId,
+        userId: user.id,
+        opportunityName,
+        companyName,
+        contactName,
+        contactEmail: email,
+        contactPhone: phone,
+        targetDate,
+        estimatedValue: valueAmount,
+        notes: [notes, location ? `Location: ${location}` : null].filter(Boolean).join("\n"),
+      });
+      toast.success("Opportunity created");
+      navigate({ to: "/opportunities" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create opportunity");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
       <Button asChild size="sm" variant="ghost" className="mb-6"><Link to="/">Dashboard</Link></Button>
@@ -28,7 +64,7 @@ function StartCallPage() {
         <div className="mb-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">RepPilot Core CRM</p>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Start a Call</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Use a neutral opportunity-first intake before opening the call cockpit.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity first.</p>
         </div>
         <div className="grid gap-4">
           <TextField id="opportunity-name" label="Opportunity name *" value={opportunityName} onChange={setOpportunityName} placeholder="Acme Q3 rollout" />
@@ -47,8 +83,10 @@ function StartCallPage() {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Anything the rep should know before the call…" />
           </div>
-          <Button disabled className="w-full"><Phone className="mr-2 h-4 w-4" />Save & Start Call</Button>
-          <p className="text-xs text-muted-foreground">Saving is staged for the next commit in this PR.</p>
+          <Button onClick={submit} disabled={saving} className="w-full">
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}
+            {saving ? "Creating…" : "Save Opportunity"}
+          </Button>
         </div>
       </section>
     </div>
