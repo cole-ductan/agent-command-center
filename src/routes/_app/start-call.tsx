@@ -29,9 +29,11 @@ function StartCallPage() {
   const [estimatedValue, setEstimatedValue] = useState("");
   const [notes, setNotes] = useState("");
 
-  const submit = async () => {
+  const submit = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     if (!user || !tenantId) return toast.error("No active workspace");
     if (!opportunityName.trim()) return toast.error("Opportunity name is required");
+    if (!contactName.trim() && (phone.trim() || email.trim())) return toast.error("Contact name is required when phone or email is entered");
     const valueAmount = estimatedValue.trim() ? Number(estimatedValue) : null;
     if (valueAmount !== null && Number.isNaN(valueAmount)) return toast.error("Estimated value must be a number");
     setSaving(true);
@@ -66,7 +68,7 @@ function StartCallPage() {
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Start a Call</h1>
           <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity first.</p>
         </div>
-        <div className="grid gap-4">
+        <form className="grid gap-4" onSubmit={submit}>
           <TextField id="opportunity-name" label="Opportunity name *" value={opportunityName} onChange={setOpportunityName} placeholder="Acme Q3 rollout" />
           <TextField id="company-name" label="Company" value={companyName} onChange={setCompanyName} placeholder="Acme Logistics" />
           <div className="grid gap-3 md:grid-cols-2">
@@ -83,11 +85,11 @@ function StartCallPage() {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Anything the rep should know before the call…" />
           </div>
-          <Button onClick={submit} disabled={saving} className="w-full">
+          <Button type="submit" disabled={saving} className="w-full">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}
             {saving ? "Creating…" : "Save Opportunity"}
           </Button>
-        </div>
+        </form>
       </section>
     </div>
   );
