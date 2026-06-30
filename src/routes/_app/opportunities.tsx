@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Building2, CalendarDays, KanbanSquare, Loader2, UserRound } from "lucide-react";
+import { Building2, CalendarDays, KanbanSquare, Loader2, Phone, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -113,7 +113,9 @@ function OpportunitiesPage() {
                       <KanbanSquare className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <h2 className="truncate font-display text-lg font-semibold">{opportunity.name}</h2>
+                      <Link to="/opportunities/$opportunityId" params={{ opportunityId: opportunity.id }} className="truncate font-display text-lg font-semibold hover:text-primary">
+                        {opportunity.name}
+                      </Link>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                         <Badge>{humanize(opportunity.stage_key)}</Badge>
                         <span>{humanize(opportunity.status)}</span>
@@ -131,11 +133,23 @@ function OpportunitiesPage() {
                   {opportunity.next_step && <p className="mt-4 rounded-md bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">Next step: {opportunity.next_step}</p>}
                 </div>
 
-                {typeof opportunity.value_amount === "number" && (
-                  <div className="rounded-lg bg-secondary px-3 py-2 font-mono text-sm font-semibold">
-                    {formatCurrency(opportunity.value_amount, opportunity.currency ?? "USD")}
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  {typeof opportunity.value_amount === "number" && (
+                    <div className="rounded-lg bg-secondary px-3 py-2 font-mono text-sm font-semibold">
+                      {formatCurrency(opportunity.value_amount, opportunity.currency ?? "USD")}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/opportunities/$opportunityId" params={{ opportunityId: opportunity.id }}>View</Link>
+                    </Button>
+                    <Button asChild size="sm">
+                      <Link to="/live-call" search={{ opportunityId: opportunity.id }}>
+                        <Phone className="mr-1 h-3.5 w-3.5" /> Call
+                      </Link>
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             </article>
           ))}
