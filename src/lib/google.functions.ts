@@ -127,94 +127,26 @@ const SendSchema = z.object({
   eventId: z.string().uuid().optional(),
 });
 
-function encodeRfc2822(to: string, fromEmail: string, subject: string, body: string) {
-  // Encode subject for non-ASCII safety (RFC 2047)
-  const subjectEncoded = /[^\x20-\x7E]/.test(subject)
-    ? `=?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`
-    : subject;
-  const message = [
-    `From: ${fromEmail}`,
-    `To: ${to}`,
-    `Subject: ${subjectEncoded}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
-    "Content-Transfer-Encoding: 7bit",
-    "",
-    body,
-  ].join("\r\n");
-  // base64url
-  return Buffer.from(message, "utf8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
 
-/** Send an email via Gmail API using the user's connected account. */
+/**
+ * Gmail send/list are DEFERRED.
+ *
+ * The Gmail scopes (gmail.send, gmail.readonly) are intentionally not
+ * requested by the OAuth flow right now. These stubs throw immediately so
+ * no callsite can ever hit gmail.googleapis.com and surface an
+ * ACCESS_TOKEN_SCOPE_INSUFFICIENT error.
+ *
+ * To re-enable: restore the previous implementations, add the appropriate
+ * scopes to GOOGLE_SCOPE_STRING, and have users reconnect.
+ */
 export const sendGmail = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => SendSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const tenantId = await requireActiveTenant(context.userId);
-    const accessToken = await getValidAccessToken(context.userId, tenantId);
-    if (!accessToken) {
-      throw new Error("Google account not connected. Connect from Settings to send via Gmail.");
-    }
-
-    // Look up the user's google email for the From header
-    const { data: tokenRow } = await supabaseAdmin
-      .from("google_tokens")
-      .select("google_email")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    const fromEmail = tokenRow?.google_email ?? "me";
-
-    const raw = encodeRfc2822(data.to, fromEmail, data.subject, data.body);
-    const res = await fetch(
-      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ raw }),
-      },
+  .handler(async () => {
+    throw new Error(
+      "In-app Gmail sending is deferred. Use 'Open in Gmail' to compose and send from your inbox.",
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Gmail send failed [${res.status}]: ${text}`);
-    }
-    const sent = (await res.json()) as { id: string; threadId: string };
-
-    // Log to emails table
-    try {
-      await supabaseAdmin.from("emails").insert({
-        tenant_id: tenantId,
-        user_id: context.userId,
-        event_id: data.eventId ?? null,
-        subject: data.subject,
-        body: data.body,
-        sent_status: "sent",
-        template_used: "gmail_api",
-      });
-    } catch (e) {
-      // Non-fatal: log but still succeed
-      console.error("Failed to log sent email:", e);
-    }
-
-    return { success: true, messageId: sent.id, threadId: sent.threadId };
   });
-
-/* ------------------------------------------------------------------ *
- * Gmail: list inbox messages
- * ------------------------------------------------------------------ */
-
-const ListGmailSchema = z.object({
-  maxResults: z.number().int().min(1).max(50).optional(),
-  q: z.string().max(500).optional(),
-});
 
 type GmailListItem = {
   id: string;
@@ -226,71 +158,19 @@ type GmailListItem = {
   unread: boolean;
 };
 
-function decodeHeader(value?: string) {
-  if (!value) return "";
-  // Quick decode of RFC 2047 base64 / Q-encoded segments
-  return value.replace(/=\?UTF-8\?B\?([^?]+)\?=/gi, (_, b64) => {
-    try {
-      return Buffer.from(b64, "base64").toString("utf8");
-    } catch {
-      return _;
-    }
-  });
-}
-
 export const listGmailMessages = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => ListGmailSchema.parse(input ?? {}))
-  .handler(async ({ data, context }): Promise<{ messages: GmailListItem[] }> => {
-    const tenantId = await requireActiveTenant(context.userId);
-    const accessToken = await getValidAccessToken(context.userId, tenantId);
-    if (!accessToken) return { messages: [] };
-
-    const params = new URLSearchParams({
-      maxResults: String(data.maxResults ?? 20),
-      q: data.q ?? "in:inbox",
-    });
-
-    const listRes = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-    if (!listRes.ok) {
-      const text = await listRes.text();
-      throw new Error(`Gmail list failed [${listRes.status}]: ${text}`);
-    }
-    const list = (await listRes.json()) as { messages?: { id: string; threadId: string }[] };
-    const ids = list.messages ?? [];
-
-    const detailed = await Promise.all(
-      ids.map(async (m) => {
-        const r = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
-          { headers: { Authorization: `Bearer ${accessToken}` } },
-        );
-        if (!r.ok) return null;
-        const msg = (await r.json()) as {
-          id: string;
-          threadId: string;
-          snippet?: string;
-          labelIds?: string[];
-          payload?: { headers?: { name: string; value: string }[] };
-        };
-        const headers = msg.payload?.headers ?? [];
-        const h = (n: string) => headers.find((x) => x.name.toLowerCase() === n.toLowerCase())?.value;
-        return {
-          id: msg.id,
-          threadId: msg.threadId,
-          snippet: msg.snippet ?? "",
-          subject: decodeHeader(h("Subject")) || "(no subject)",
-          from: decodeHeader(h("From")) || "",
-          date: h("Date") ?? "",
-          unread: (msg.labelIds ?? []).includes("UNREAD"),
-        } satisfies GmailListItem;
-      }),
-    );
-    return { messages: detailed.filter((x): x is GmailListItem => x !== null) };
+  .handler(async (): Promise<{ messages: GmailListItem[] }> => {
+    // Deferred — Gmail read scope is not requested. Always return empty.
+    return { messages: [] };
   });
+
+const ListGmailSchema = z.object({
+  maxResults: z.number().int().min(1).max(50).optional(),
+  q: z.string().max(500).optional(),
+});
+
 
 /* ------------------------------------------------------------------ *
  * Calendar: list upcoming events
