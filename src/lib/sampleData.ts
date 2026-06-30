@@ -1,12 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Seeds a handful of sample CRM rows into a tenant for demo/onboarding purposes.
- * Idempotent-ish: skips if the tenant already has 3+ events.
+ * Seeds generic SaaS-style sample CRM rows into a tenant for demo/onboarding.
+ * Idempotent-ish: skips if the tenant already has 3+ opportunities.
  *
- * NOTE: This is generic-shape sample data, not a starter template payload.
- * Starter templates (e.g. the Dixon Golf one) come from the
- * command_center_templates / template_payloads system added in phase 1b.
+ * Vocabulary is intentionally generic (companies, contacts, opportunities)
+ * so any sales team can recognize the shape — industry-specific starter
+ * content comes from the command_center_templates system.
  */
 export async function seedSampleData(tenantId: string, userId: string) {
   const existing = await supabase
@@ -16,12 +16,12 @@ export async function seedSampleData(tenantId: string, userId: string) {
   if ((existing.count ?? 0) >= 3) return { skipped: true as const };
 
   const orgs = [
-    { name: "Bay Area Junior Golf Foundation", cause: "Youth golf scholarships" },
-    { name: "St. Vincent's Charity Open", cause: "Local food bank" },
-    { name: "Veterans Tee-Off Classic", cause: "Veteran mental health" },
-    { name: "Riverside Rotary Club", cause: "Community grants" },
-    { name: "Greenfield Memorial Tournament", cause: "Cancer research" },
-    { name: "First Tee — Green Bay", cause: "Youth development" },
+    { name: "Acme Corp", cause: "Enterprise software buyer" },
+    { name: "Northwind Trading", cause: "Mid-market expansion" },
+    { name: "Globex Industries", cause: "New logo opportunity" },
+    { name: "Initech Systems", cause: "Renewal + upsell" },
+    { name: "Umbrella Co.", cause: "Inbound demo request" },
+    { name: "Hooli Labs", cause: "Referral from existing customer" },
   ];
 
   const { data: orgRows, error: orgErr } = await supabase
@@ -35,9 +35,9 @@ export async function seedSampleData(tenantId: string, userId: string) {
     user_id: userId,
     organization_id: o.id,
     name: ["Sarah Mitchell", "Tom Reynolds", "Maria Lopez", "James Chen", "Patricia Hill", "Derek Walters"][i],
-    email: `contact${i + 1}@example.org`,
+    email: `contact${i + 1}@example.com`,
     phone: `(555) 010-${1000 + i}`,
-    role: ["Director", "Tournament Chair", "Fundraising Lead", "President", "Coordinator", "Volunteer Lead"][i],
+    role: ["VP Sales", "Operations Lead", "Procurement", "CEO", "Office Manager", "Team Lead"][i],
   }));
   const { data: contactRows, error: cErr } = await supabase.from("contacts").insert(contacts).select();
   if (cErr) throw cErr;
@@ -46,12 +46,12 @@ export async function seedSampleData(tenantId: string, userId: string) {
   const inDays = (d: number) => new Date(today.getTime() + d * 86400000).toISOString().slice(0, 10);
 
   const events = [
-    { idx: 0, name: "BAJGF Annual Scholarship Classic", stage: "new_lead", course: "Pebble Creek GC", days: 60, hot: false, where_left_off: "Initial cold call — left voicemail." },
-    { idx: 1, name: "St. Vincent's Charity Open", stage: "contacted", course: "Riverbend Country Club", days: 45, hot: true, where_left_off: "Pitched amateur endorsement, awaiting email reply." },
-    { idx: 2, name: "Veterans Tee-Off Classic", stage: "pitch_delivered", course: "Eagle Ridge Resort", days: 30, hot: true, where_left_off: "Loved the on-course offers. Wants to confirm dates with committee." },
-    { idx: 3, name: "Riverside Rotary Open", stage: "challenges_booked", course: "Riverside Muni", days: 21, hot: false, where_left_off: "Booked both offers. Need to send walkthrough." },
-    { idx: 4, name: "Greenfield Memorial Tournament", stage: "cgt_created", course: "Greenfield CC", days: 14, hot: false, where_left_off: "Platform set up. Discussing sponsor packages next." },
-    { idx: 5, name: "First Tee Green Bay Spring Scramble", stage: "follow_up_scheduled", course: "Brown County Public", days: 7, hot: true, where_left_off: "Scheduled follow-up to confirm gift order." },
+    { idx: 0, name: "Acme — Annual Contract",         stage: "new_lead",            location: "Remote",         days: 60, hot: false, where_left_off: "Initial cold call — left voicemail." },
+    { idx: 1, name: "Northwind — Pilot Rollout",      stage: "contacted",           location: "Chicago, IL",    days: 45, hot: true,  where_left_off: "Pitched product, awaiting email reply." },
+    { idx: 2, name: "Globex — Platform Evaluation",   stage: "pitch_delivered",     location: "Austin, TX",     days: 30, hot: true,  where_left_off: "Demo went well. Wants to confirm dates with team." },
+    { idx: 3, name: "Initech — Renewal + Upsell",     stage: "challenges_booked",   location: "Remote",         days: 21, hot: false, where_left_off: "Demo booked. Need to send walkthrough." },
+    { idx: 4, name: "Umbrella — New Account Setup",   stage: "cgt_created",         location: "Denver, CO",     days: 14, hot: false, where_left_off: "Account set up. Discussing expansion next." },
+    { idx: 5, name: "Hooli — Q4 Proposal",            stage: "follow_up_scheduled", location: "San Francisco",  days: 7,  hot: true,  where_left_off: "Scheduled follow-up to confirm order." },
   ];
 
   const eventInserts = events.map((e) => ({
@@ -61,12 +61,12 @@ export async function seedSampleData(tenantId: string, userId: string) {
     primary_contact_id: contactRows![e.idx].id,
     event_name: e.name,
     event_date: inDays(e.days),
-    course: e.course,
+    course: e.location,
     stage: e.stage as any,
     hot_lead: e.hot,
     where_left_off: e.where_left_off,
-    player_count: 80 + e.idx * 12,
-    entry_fee: 150 + e.idx * 25,
+    player_count: 10 + e.idx * 5,
+    entry_fee: 500 + e.idx * 250,
     last_contact_at: new Date().toISOString(),
   }));
 
@@ -76,9 +76,9 @@ export async function seedSampleData(tenantId: string, userId: string) {
   const tasks = [
     { event_id: eventRows![0].id, action: "Try call again — left VM yesterday", offsetHours: -18, priority: "high" },
     { event_id: eventRows![1].id, action: "Confirm welcome email received", offsetHours: 4, priority: "normal" },
-    { event_id: eventRows![2].id, action: "Lock in dates", offsetHours: 28, priority: "high" },
+    { event_id: eventRows![2].id, action: "Lock in next-step dates", offsetHours: 28, priority: "high" },
     { event_id: eventRows![3].id, action: "Send walkthrough", offsetHours: 50, priority: "normal" },
-    { event_id: eventRows![5].id, action: "Confirm gift order quantities", offsetHours: 2, priority: "urgent" },
+    { event_id: eventRows![5].id, action: "Confirm order quantities", offsetHours: 2, priority: "urgent" },
   ];
   const taskInserts = tasks.map((t) => ({
     tenant_id: tenantId,
