@@ -18,6 +18,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
+import {
+  QuickAddCrmDialog,
+  type CompanyOption,
+  type OpportunityOption,
+  type PersonOption,
+  type QuickAddKind,
+} from "@/components/QuickAddCrmDialog";
 
 export const Route = createFileRoute("/_app/")({
   component: Dashboard,
@@ -87,6 +94,10 @@ function Dashboard() {
   const [counts, setCounts] = useState<CrmCounts>(EMPTY_COUNTS);
   const [tasks, setTasks] = useState<DashboardTask[]>([]);
   const [opportunities, setOpportunities] = useState<OpportunityLite[]>([]);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [peopleOptions, setPeopleOptions] = useState<PersonOption[]>([]);
+  const [opportunityOptions, setOpportunityOptions] = useState<OpportunityOption[]>([]);
+  const [quickAddKind, setQuickAddKind] = useState<QuickAddKind | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [todayLabel, setTodayLabel] = useState("");
@@ -100,6 +111,9 @@ function Dashboard() {
       setCounts(EMPTY_COUNTS);
       setTasks([]);
       setOpportunities([]);
+      setCompanyOptions([]);
+      setPeopleOptions([]);
+      setOpportunityOptions([]);
       setLoading(false);
       return;
     }
@@ -122,30 +136,46 @@ function Dashboard() {
         return count ?? 0;
       };
 
-      const [companyCount, peopleCount, opportunityCount, taskCount, noteCount, taskResult, opportunityResult] =
-        await Promise.all([
-          countRows("companies"),
-          countRows("people"),
-          countRows("opportunities"),
-          countRows("tasks"),
-          countRows("notes"),
-          db
-            .from("tasks")
-            .select("id,next_action,next_action_at,priority,status")
-            .eq("tenant_id", tenantId)
-            .eq("status", "pending")
-            .order("next_action_at", { ascending: true })
-            .limit(12),
-          db
-            .from("opportunities")
-            .select("id,name,stage_key,status,value_amount,currency,expected_close_date,updated_at")
-            .eq("tenant_id", tenantId)
-            .order("updated_at", { ascending: false })
-            .limit(6),
-        ]);
+      const [
+        companyCount,
+        peopleCount,
+        opportunityCount,
+        taskCount,
+        noteCount,
+        taskResult,
+        opportunityResult,
+        companyOptionResult,
+        peopleOptionResult,
+        opportunityOptionResult,
+      ] = await Promise.all([
+        countRows("companies"),
+        countRows("people"),
+        countRows("opportunities"),
+        countRows("tasks"),
+        countRows("notes"),
+        db
+          .from("tasks")
+          .select("id,next_action,next_action_at,priority,status")
+          .eq("tenant_id", tenantId)
+          .eq("status", "pending")
+          .order("next_action_at", { ascending: true })
+          .limit(12),
+        db
+          .from("opportunities")
+          .select("id,name,stage_key,status,value_amount,currency,expected_close_date,updated_at")
+          .eq("tenant_id", tenantId)
+          .order("updated_at", { ascending: false })
+          .limit(6),
+        db.from("companies").select("id,name").eq("tenant_id", tenantId).order("name", { ascending: true }).limit(100),
+        db.from("people").select("id,full_name").eq("tenant_id", tenantId).order("full_name", { ascending: true }).limit(100),
+        db.from("opportunities").select("id,name").eq("tenant_id", tenantId).order("name", { ascending: true }).limit(100),
+      ]);
 
       if (taskResult.error) throw taskResult.error;
       if (opportunityResult.error) throw opportunityResult.error;
+      if (companyOptionResult.error) throw companyOptionResult.error;
+      if (peopleOptionResult.error) throw peopleOptionResult.error;
+      if (opportunityOptionResult.error) throw opportunityOptionResult.error;
 
       setCounts({
         companies: companyCount,
@@ -156,6 +186,9 @@ function Dashboard() {
       });
       setTasks((taskResult.data ?? []) as DashboardTask[]);
       setOpportunities((opportunityResult.data ?? []) as OpportunityLite[]);
+      setCompanyOptions((companyOptionResult.data ?? []) as CompanyOption[]);
+      setPeopleOptions((peopleOptionResult.data ?? []) as PersonOption[]);
+      setOpportunityOptions((opportunityOptionResult.data ?? []) as OpportunityOption[]);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unable to load CRM dashboard data.";
       setError(message);
@@ -227,14 +260,14 @@ function Dashboard() {
             <section className="space-y-6 lg:col-span-2">
               <Card title="Quick Add" eyebrow="Blank CRM primitives">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  <QuickAddTile icon={<Building2 className="h-4 w-4" />} title="Company" />
-                  <QuickAddTile icon={<UserRound className="h-4 w-4" />} title="Person" />
-                  <QuickAddTile icon={<KanbanSquare className="h-4 w-4" />} title="Opportunity" />
-                  <QuickAddTile icon={<CalendarClock className="h-4 w-4" />} title="Task" />
-                  <QuickAddTile icon={<FileText className="h-4 w-4" />} title="Note" />
+                  <QuickAddTile icon={<Building2 className="h-4 w-4" />} title="Company" onClick={() => setQuickAddKind("company")} />
+                  <QuickAddTile icon={<UserRound className="h-4 w-4" />} title="Person" onClick={() => setQuickAddKind("person")} />
+                  <QuickAddTile icon={<KanbanSquare className="h-4 w-4" />} title="Opportunity" onClick={() => setQuickAddKind("opportunity")} />
+                  <QuickAddTile icon={<CalendarClock className="h-4 w-4" />} title="Task" onClick={() => setQuickAddKind("task")} />
+                  <QuickAddTile icon={<FileText className="h-4 w-4" />} title="Note" onClick={() => setQuickAddKind("note")} />
                 </div>
                 <p className="mt-4 text-xs text-muted-foreground">
-                  These actions are intentionally staged. This PR makes the neutral CRM surface visible before adding create/edit flows.
+                  Create neutral CRM records without touching legacy event-shaped data.
                 </p>
               </Card>
 
@@ -297,18 +330,28 @@ function Dashboard() {
 
               <Card title="Migration Status" eyebrow="Architecture">
                 <div className="space-y-3 text-sm text-muted-foreground">
-                  <p>
-                    The dashboard is now reading the neutral RepPilot Core CRM tables added in PR #8.
-                  </p>
-                  <p>
-                    Legacy call and pipeline screens remain available while their data layer is migrated in later PRs.
-                  </p>
+                  <p>The dashboard is now reading and writing the neutral RepPilot Core CRM tables added in PR #8.</p>
+                  <p>Legacy call and pipeline screens remain available while their data layer is migrated in later PRs.</p>
                 </div>
               </Card>
             </aside>
           </div>
         </div>
       )}
+
+      <QuickAddCrmDialog
+        open={quickAddKind !== null}
+        kind={quickAddKind}
+        tenantId={tenantId}
+        userId={user?.id}
+        companies={companyOptions}
+        people={peopleOptions}
+        opportunities={opportunityOptions}
+        onOpenChange={(open) => {
+          if (!open) setQuickAddKind(null);
+        }}
+        onCreated={load}
+      />
     </div>
   );
 }
@@ -342,18 +385,18 @@ function Card({ title, eyebrow, count, children }: { title: string; eyebrow?: st
   );
 }
 
-function QuickAddTile({ icon, title }: { icon: ReactNode; title: string }) {
+function QuickAddTile({ icon, title, onClick }: { icon: ReactNode; title: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      disabled
-      className="rounded-lg border bg-background/50 p-3 text-left opacity-75 transition hover:bg-secondary disabled:cursor-not-allowed"
+      onClick={onClick}
+      className="rounded-lg border bg-background/50 p-3 text-left transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring"
     >
       <div className="flex items-center gap-2 font-medium">
         {icon}
         {title}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">Create flow next</div>
+      <div className="mt-1 text-xs text-muted-foreground">Create record</div>
     </button>
   );
 }
@@ -390,9 +433,7 @@ function Badge({ children }: { children: ReactNode }) {
 }
 
 function humanize(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatCurrency(value: number, currency: string) {
