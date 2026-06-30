@@ -25,8 +25,9 @@ type Doc = {
 };
 
 function TrainingDocsPage() {
-  const { tenant } = useActiveTenant();
+  const { tenant, role } = useActiveTenant();
   const { user } = useAuth();
+  const canEdit = role === "owner" || role === "admin";
   const [rows, setRows] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");

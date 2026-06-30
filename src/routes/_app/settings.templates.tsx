@@ -20,7 +20,8 @@ type Template = {
 };
 
 function TemplatesPage() {
-  const { tenant } = useActiveTenant();
+  const { tenant, role } = useActiveTenant();
+  const canEdit = role === "owner" || role === "admin";
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);

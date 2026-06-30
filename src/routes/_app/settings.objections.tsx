@@ -123,19 +123,21 @@ function ObjectionsPage() {
           <Card key={row.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-mono text-muted-foreground">{row.slug}</CardTitle>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => save(row)} disabled={saving === row.id}>
-                  {saving === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => remove(row.id)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+              {canEdit && (
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" onClick={() => save(row)} disabled={saving === row.id}>
+                    {saving === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => remove(row.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-1.5">
                 <Label>Trigger phrase</Label>
-                <Input value={row.trigger} onChange={(e) => updateField(row.id, "trigger", e.target.value)} />
+                <Input value={row.trigger} onChange={(e) => updateField(row.id, "trigger", e.target.value)} disabled={!canEdit} />
               </div>
               <div className="grid gap-1.5">
                 <Label>Response</Label>
@@ -143,11 +145,12 @@ function ObjectionsPage() {
                   value={row.response}
                   onChange={(e) => updateField(row.id, "response", e.target.value)}
                   rows={4}
+                  disabled={!canEdit}
                 />
               </div>
               <div className="grid gap-1.5">
                 <Label>Tip (optional)</Label>
-                <Input value={row.tip ?? ""} onChange={(e) => updateField(row.id, "tip", e.target.value)} />
+                <Input value={row.tip ?? ""} onChange={(e) => updateField(row.id, "tip", e.target.value)} disabled={!canEdit} />
               </div>
             </CardContent>
           </Card>
