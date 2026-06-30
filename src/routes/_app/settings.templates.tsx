@@ -4,7 +4,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/settings/templates")({
@@ -38,6 +38,7 @@ function TemplatesPage() {
   }, []);
 
   const apply = async (t: Template) => {
+    if (!canEdit) return;
     if (!tenant) return;
     if (
       !confirm(
@@ -73,6 +74,15 @@ function TemplatesPage() {
         </p>
       </header>
 
+      {!canEdit && (
+        <Card className="border-dashed bg-secondary/30">
+          <CardContent className="flex items-start gap-2 py-4 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Read-only view. Members can see available starter templates, but only Admins and Owners can apply templates to this workspace.</span>
+          </CardContent>
+        </Card>
+      )}
+
       {loading ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
       ) : (
@@ -89,16 +99,21 @@ function TemplatesPage() {
                 {t.description && (
                   <p className="text-sm text-muted-foreground">{t.description}</p>
                 )}
-                <Button
-                  onClick={() => apply(t)}
-                  disabled={!canEdit || applying !== null || t.slug === "blank"}
-                  size="sm"
-                  variant={t.slug === "blank" ? "outline" : "default"}
-                  title={!canEdit ? "Only admins or owners can apply templates" : undefined}
-                >
-                  {applying === t.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {t.slug === "blank" ? "Nothing to apply" : "Apply to this workspace"}
-                </Button>
+                {canEdit ? (
+                  <Button
+                    onClick={() => apply(t)}
+                    disabled={applying !== null || t.slug === "blank"}
+                    size="sm"
+                    variant={t.slug === "blank" ? "outline" : "default"}
+                  >
+                    {applying === t.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {t.slug === "blank" ? "Nothing to apply" : "Apply to this workspace"}
+                  </Button>
+                ) : (
+                  <div className="rounded-md bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+                    Template application is restricted to Admins and Owners.
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

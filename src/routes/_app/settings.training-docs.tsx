@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Trash2, ExternalLink, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/settings/training-docs")({
@@ -51,6 +51,7 @@ function TrainingDocsPage() {
   useEffect(() => { load(); }, [load]);
 
   const add = async () => {
+    if (!canEdit) return;
     if (!tenant || !user || !title.trim()) return;
     setAdding(true);
     try {
@@ -74,6 +75,7 @@ function TrainingDocsPage() {
   };
 
   const remove = async (id: string) => {
+    if (!canEdit) return;
     if (!confirm("Delete this document?")) return;
     const { error } = await supabase.from("training_documents").delete().eq("id", id);
     if (error) toast.error(error.message);
@@ -89,9 +91,17 @@ function TrainingDocsPage() {
         <p className="text-sm text-muted-foreground">
           Reference materials, playbooks, and PDFs your team can pull up. (Direct file upload coming next —
           for now, paste a link to a Drive / Notion / PDF URL.)
-          {!canEdit && " Only admins and owners can add or remove docs."}
         </p>
       </header>
+
+      {!canEdit && (
+        <Card className="border-dashed bg-secondary/30">
+          <CardContent className="flex items-start gap-2 py-4 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Read-only view. Members can open training docs, but only Admins and Owners can add, upload, edit, or delete training materials.</span>
+          </CardContent>
+        </Card>
+      )}
 
       {canEdit && (
         <Card>
