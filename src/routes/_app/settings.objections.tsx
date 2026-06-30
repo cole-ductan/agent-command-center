@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Trash2, Save } from "lucide-react";
+import { Loader2, Plus, Trash2, Save, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/settings/objections")({
@@ -47,6 +47,7 @@ function ObjectionsPage() {
   useEffect(() => { load(); }, [load]);
 
   const addNew = async () => {
+    if (!canEdit) return;
     if (!tenant || !user) return;
     const slug = `objection_${Date.now()}`;
     const { data, error } = await supabase
@@ -66,10 +67,12 @@ function ObjectionsPage() {
   };
 
   const updateField = (id: string, key: keyof Objection, value: string) => {
+    if (!canEdit) return;
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
   };
 
   const save = async (row: Objection) => {
+    if (!canEdit) return;
     setSaving(row.id);
     const { error } = await supabase
       .from("objections")
@@ -85,6 +88,7 @@ function ObjectionsPage() {
   };
 
   const remove = async (id: string) => {
+    if (!canEdit) return;
     if (!confirm("Delete this objection?")) return;
     const { error } = await supabase.from("objections").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
@@ -100,7 +104,6 @@ function ObjectionsPage() {
           <h1 className="font-display text-2xl font-semibold">Objections</h1>
           <p className="text-sm text-muted-foreground">
             Quick-reference responses your team can pull up during live calls.
-            {!canEdit && " Only admins and owners can edit this list."}
           </p>
         </div>
         {canEdit && (
@@ -108,14 +111,25 @@ function ObjectionsPage() {
         )}
       </header>
 
+      {!canEdit && (
+        <Card className="border-dashed bg-secondary/30">
+          <CardContent className="flex items-start gap-2 py-4 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Read-only view. Members can use objections during calls, but only Admins and Owners can add, edit, or delete objection responses.</span>
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
       ) : rows.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No objections yet. Click <strong>Add objection</strong> above or apply a starter template
-            from <strong>Settings → Templates</strong>.
+            {canEdit ? (
+              <>No objections yet. Click <strong>Add objection</strong> above or apply a starter template from <strong>Settings → Templates</strong>.</>
+            ) : (
+              <>No objections have been added to this workspace yet.</>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -135,23 +149,43 @@ function ObjectionsPage() {
               )}
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid gap-1.5">
-                <Label>Trigger phrase</Label>
-                <Input value={row.trigger} onChange={(e) => updateField(row.id, "trigger", e.target.value)} disabled={!canEdit} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Response</Label>
-                <Textarea
-                  value={row.response}
-                  onChange={(e) => updateField(row.id, "response", e.target.value)}
-                  rows={4}
-                  disabled={!canEdit}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Tip (optional)</Label>
-                <Input value={row.tip ?? ""} onChange={(e) => updateField(row.id, "tip", e.target.value)} disabled={!canEdit} />
-              </div>
+              {canEdit ? (
+                <>
+                  <div className="grid gap-1.5">
+                    <Label>Trigger phrase</Label>
+                    <Input value={row.trigger} onChange={(e) => updateField(row.id, "trigger", e.target.value)} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Response</Label>
+                    <Textarea
+                      value={row.response}
+                      onChange={(e) => updateField(row.id, "response", e.target.value)}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Tip (optional)</Label>
+                    <Input value={row.tip ?? ""} onChange={(e) => updateField(row.id, "tip", e.target.value)} />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Trigger phrase</div>
+                    <div className="mt-1 rounded-md bg-secondary/40 px-3 py-2">{row.trigger}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Response</div>
+                    <div className="mt-1 whitespace-pre-wrap rounded-md bg-secondary/40 px-3 py-2 leading-relaxed">{row.response}</div>
+                  </div>
+                  {row.tip && (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</div>
+                      <div className="mt-1 rounded-md bg-secondary/40 px-3 py-2 italic">{row.tip}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))
