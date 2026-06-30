@@ -249,11 +249,11 @@ function Dashboard() {
       ) : (
         <div className="space-y-6">
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <MetricCard title="Companies" value={counts.companies} icon={<Building2 className="h-4 w-4" />} />
-            <MetricCard title="People" value={counts.people} icon={<UserRound className="h-4 w-4" />} />
-            <MetricCard title="Opportunities" value={counts.opportunities} icon={<KanbanSquare className="h-4 w-4" />} />
-            <MetricCard title="Tasks" value={counts.tasks} icon={<CalendarClock className="h-4 w-4" />} />
-            <MetricCard title="Notes" value={counts.notes} icon={<FileText className="h-4 w-4" />} />
+            <MetricCard title="Companies" value={counts.companies} icon={<Building2 className="h-4 w-4" />} to="/companies" />
+            <MetricCard title="People" value={counts.people} icon={<UserRound className="h-4 w-4" />} to="/people" />
+            <MetricCard title="Opportunities" value={counts.opportunities} icon={<KanbanSquare className="h-4 w-4" />} to="/opportunities" />
+            <MetricCard title="Tasks" value={counts.tasks} icon={<CalendarClock className="h-4 w-4" />} to="/tasks" />
+            <MetricCard title="Notes" value={counts.notes} icon={<FileText className="h-4 w-4" />} to="/notes" />
           </section>
 
           <div className="grid gap-6 lg:grid-cols-3">
@@ -356,9 +356,9 @@ function Dashboard() {
   );
 }
 
-function MetricCard({ title, value, icon }: { title: string; value: number; icon: ReactNode }) {
-  return (
-    <section className="rounded-xl border bg-card p-5 shadow-[var(--shadow-card)]">
+function MetricCard({ title, value, icon, to }: { title: string; value: number; icon: ReactNode; to?: string }) {
+  const content = (
+    <section className="rounded-xl border bg-card p-5 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="mb-3 flex items-center justify-between text-muted-foreground">
         <span className="text-sm font-medium">{title}</span>
         {icon}
@@ -366,6 +366,8 @@ function MetricCard({ title, value, icon }: { title: string; value: number; icon
       <div className="font-display text-3xl font-semibold">{value}</div>
     </section>
   );
+
+  return to ? <Link to={to}>{content}</Link> : content;
 }
 
 function Card({ title, eyebrow, count, children }: { title: string; eyebrow?: string; count?: number; children: ReactNode }) {
