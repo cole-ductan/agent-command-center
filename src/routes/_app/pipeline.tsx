@@ -256,17 +256,17 @@ function PipelinePage() {
                     </Select>
                   </div>
 
-                  {/* Editable players & entry fee */}
+                  {/* Editable quantity & unit price */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="grid gap-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Players</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quantity</Label>
                       <NumberField
                         value={open.player_count}
                         onSave={(v) => updateOpenField({ player_count: v })}
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Entry fee</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit price</Label>
                       <NumberField
                         value={open.entry_fee}
                         onSave={(v) => updateOpenField({ entry_fee: v })}
@@ -290,13 +290,13 @@ function PipelinePage() {
                     />
                   </div>
 
-                  {/* Editable event ID */}
+                  {/* Editable external ID */}
                   <div className="grid gap-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Event ID</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">External ID</Label>
                     <TextField
                       value={open.dixon_tournament_id ?? ""}
                       onSave={(v) => updateOpenField({ dixon_tournament_id: v || null })}
-                      placeholder="e.g. Dixon tournament ID"
+                      placeholder="Optional reference ID"
                     />
                   </div>
 
