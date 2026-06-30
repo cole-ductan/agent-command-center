@@ -67,10 +67,10 @@ const GROUPS: { id: GroupId; label: string; stages: Stage[]; tooltip?: string }[
 
 // Tooltips for jargon stages
 const STAGE_TOOLTIPS: Partial<Record<Stage, string>> = {
-  cgt_created: "Charity Golf Today — the free tournament management platform created for the lead.",
-  challenges_booked: "Par 3 (Dixon Challenge) and/or Par 5 (Aurelius Challenge) on-course games confirmed.",
-  pitch_delivered: "Full pitch delivered — Amateur Endorsement, on-course games, CGT, and custom products.",
-  proposal_sent: "Formal proposal / sponsorship doc sent — awaiting their decision.",
+  cgt_created: "Account or workspace created for the lead.",
+  challenges_booked: "Demo or working session booked.",
+  pitch_delivered: "Full pitch / discovery completed.",
+  proposal_sent: "Formal proposal sent — awaiting their decision.",
 };
 
 // Estimated value: entry_fee × player_count (or 0)
@@ -240,7 +240,7 @@ function PipelinePage() {
                   <SheetDescription className="flex items-center gap-2"><StageChip stage={open.stage} /></SheetDescription>
                 </SheetHeader>
                 <div className="mt-6 space-y-4 text-sm">
-                  {open.course && <Detail icon={<MapPin className="h-3.5 w-3.5" />} label="Course" value={open.course} />}
+                  {open.course && <Detail icon={<MapPin className="h-3.5 w-3.5" />} label="Location" value={open.course} />}
                   {open.event_date && <Detail icon={<Calendar className="h-3.5 w-3.5" />} label="Event date" value={format(new Date(open.event_date), "EEEE, MMMM d, yyyy")} />}
 
                   {/* Editable stage */}
@@ -256,17 +256,17 @@ function PipelinePage() {
                     </Select>
                   </div>
 
-                  {/* Editable players & entry fee */}
+                  {/* Editable quantity & unit price */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="grid gap-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Players</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quantity</Label>
                       <NumberField
                         value={open.player_count}
                         onSave={(v) => updateOpenField({ player_count: v })}
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Entry fee</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit price</Label>
                       <NumberField
                         value={open.entry_fee}
                         onSave={(v) => updateOpenField({ entry_fee: v })}
@@ -290,13 +290,13 @@ function PipelinePage() {
                     />
                   </div>
 
-                  {/* Editable event ID */}
+                  {/* Editable external ID */}
                   <div className="grid gap-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Event ID</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">External ID</Label>
                     <TextField
                       value={open.dixon_tournament_id ?? ""}
                       onSave={(v) => updateOpenField({ dixon_tournament_id: v || null })}
-                      placeholder="e.g. Dixon tournament ID"
+                      placeholder="Optional reference ID"
                     />
                   </div>
 

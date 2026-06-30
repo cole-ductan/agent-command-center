@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_app/notes")({
   component: NotesPage,
   head: () => ({
     meta: [
-      { title: "Notes — Dixon Command Center" },
+      { title: "Notes — Command Center" },
       { name: "description", content: "Capture, organize, and find your notes by folder." },
     ],
   }),

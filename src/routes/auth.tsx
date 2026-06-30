@@ -71,8 +71,8 @@ function AuthPage() {
             <Flag className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-display text-2xl font-semibold leading-tight">Dixon Command Center</div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Tournament Consultant</div>
+            <div className="font-display text-2xl font-semibold leading-tight">Command Center</div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Sales Cockpit</div>
           </div>
         </div>
 

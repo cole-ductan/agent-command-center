@@ -145,25 +145,25 @@ export function AddLeadDialog({
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Add Lead</DialogTitle>
           <DialogDescription>
-            Create an organization, primary contact, and tournament event in one step.
+            Create an organization, primary contact, and opportunity in one step.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="event">Event name *</Label>
-            <Input id="event" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="Annual Scholarship Classic" />
+            <Label htmlFor="event">Opportunity name *</Label>
+            <Input id="event" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="Acme Q3 Renewal" />
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="org">Organization</Label>
-            <Input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="St. Vincent's Charity Foundation" />
+            <Label htmlFor="org">Company</Label>
+            <Input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Acme Inc." />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="contact">Contact name</Label>
-              <Input id="contact" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Sarah Mitchell" />
+              <Input id="contact" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Jane Doe" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="phone">Phone</Label>
@@ -172,24 +172,24 @@ export function AddLeadDialog({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="contact@org.com" />
+            <Input id="email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="contact@company.com" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="course">Golf course</Label>
-              <Input id="course" value={course} onChange={(e) => setCourse(e.target.value)} placeholder="Pebble Creek GC" />
+              <Label htmlFor="course">Location</Label>
+              <Input id="course" value={course} onChange={(e) => setCourse(e.target.value)} placeholder="City, venue, or region" />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="date">Event date</Label>
+              <Label htmlFor="date">Target date</Label>
               <Input id="date" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="players"># of Players</Label>
-              <Input id="players" type="number" min="0" value={playerCount} onChange={(e) => setPlayerCount(e.target.value)} placeholder="Est. player count" />
+              <Label htmlFor="players">Quantity / seats</Label>
+              <Input id="players" type="number" min="0" value={playerCount} onChange={(e) => setPlayerCount(e.target.value)} placeholder="Optional" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="source">Lead Source</Label>
@@ -203,8 +203,8 @@ export function AddLeadDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="eventid">Event ID</Label>
-            <Input id="eventid" value={eventId} onChange={(e) => setEventId(e.target.value)} placeholder="e.g. Dixon tournament ID" />
+            <Label htmlFor="eventid">External ID</Label>
+            <Input id="eventid" value={eventId} onChange={(e) => setEventId(e.target.value)} placeholder="Optional reference ID" />
           </div>
 
           <div className="grid gap-1.5">
