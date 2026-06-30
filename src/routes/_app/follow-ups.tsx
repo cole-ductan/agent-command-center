@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format, isPast, isToday, isSameDay, startOfDay, subHours, subDays } from "date-fns";
+import { format, isToday, isSameDay, startOfDay, subHours, subDays } from "date-fns";
 import { type Stage } from "@/lib/stages";
 import { toast } from "sonner";
 import { openGCal } from "@/lib/gcal";
@@ -93,13 +93,19 @@ function FollowUpsPage() {
 
   const groups = useMemo(() => {
     const visible = tasks.filter((t) => showArchived || !t.events?.archived);
-    const overdue = visible.filter((t) => isPast(new Date(t.next_action_at)) && !isToday(new Date(t.next_action_at)));
-    const today = visible.filter((t) => isToday(new Date(t.next_action_at)));
-    const upcoming = visible.filter((t) => !isPast(new Date(t.next_action_at)) && !isToday(new Date(t.next_action_at)));
+    const now = new Date();
+    const overdue = visible.filter((t) => new Date(t.next_action_at) < now);
+    const today = visible.filter((t) => {
+      const dueAt = new Date(t.next_action_at);
+      return dueAt >= now && isToday(dueAt);
+    });
+    const upcoming = visible.filter((t) => {
+      const dueAt = new Date(t.next_action_at);
+      return dueAt >= now && !isToday(dueAt);
+    });
     return { overdue, today, upcoming };
   }, [tasks, showArchived]);
 
-  // Lead-based groups (events, not tasks)
   const leadGroups = useMemo(() => {
     const visibleEvents = allEvents.filter((e) => showArchived || !e.archived);
     const eventIdsWithTasks = new Set(tasks.map((t) => t.events?.id).filter(Boolean));

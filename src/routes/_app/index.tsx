@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { format, isPast, isToday } from "date-fns";
+import { format, isToday } from "date-fns";
 import {
   Building2,
   CalendarClock,
@@ -203,9 +203,16 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, tenantId]);
 
-  const overdue = tasks.filter((task) => isPast(new Date(task.next_action_at)) && !isToday(new Date(task.next_action_at)));
-  const todayItems = tasks.filter((task) => isToday(new Date(task.next_action_at)));
-  const upcoming = tasks.filter((task) => !isPast(new Date(task.next_action_at)) && !isToday(new Date(task.next_action_at)));
+  const now = new Date();
+  const overdue = tasks.filter((task) => new Date(task.next_action_at) < now);
+  const todayItems = tasks.filter((task) => {
+    const dueAt = new Date(task.next_action_at);
+    return dueAt >= now && isToday(dueAt);
+  });
+  const upcoming = tasks.filter((task) => {
+    const dueAt = new Date(task.next_action_at);
+    return dueAt >= now && !isToday(dueAt);
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">
@@ -217,7 +224,7 @@ function Dashboard() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link to="/call">
+            <Link to="/start-call">
               <Phone className="mr-2 h-4 w-4" />
               Start Call
             </Link>
