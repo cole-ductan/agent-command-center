@@ -38,7 +38,7 @@ function StartCallPage() {
     if (valueAmount !== null && Number.isNaN(valueAmount)) return toast.error("Estimated value must be a number");
     setSaving(true);
     try {
-      await createStartOpportunity({
+      const result = await createStartOpportunity({
         tenantId,
         userId: user.id,
         opportunityName,
@@ -50,8 +50,8 @@ function StartCallPage() {
         estimatedValue: valueAmount,
         notes: [notes, location ? `Location: ${location}` : null].filter(Boolean).join("\n"),
       });
-      toast.success("Opportunity created");
-      navigate({ to: "/opportunities" });
+      toast.success("Opportunity created. Opening call guidance.");
+      navigate({ to: "/call", search: { eventId: result.legacyEventId } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create opportunity");
     } finally {
@@ -66,7 +66,7 @@ function StartCallPage() {
         <div className="mb-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">RepPilot Core CRM</p>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Start a Call</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity first.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity, then open live call guidance.</p>
         </div>
         <form className="grid gap-4" onSubmit={submit}>
           <TextField id="opportunity-name" label="Opportunity name *" value={opportunityName} onChange={setOpportunityName} placeholder="Acme Q3 rollout" />
@@ -87,7 +87,7 @@ function StartCallPage() {
           </div>
           <Button type="submit" disabled={saving} className="w-full">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}
-            {saving ? "Creating…" : "Save Opportunity"}
+            {saving ? "Creating…" : "Save & Start Call"}
           </Button>
         </form>
       </section>
