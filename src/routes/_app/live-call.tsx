@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const liveCallSearchSchema = z.object({
   opportunityId: z.string().optional(),
@@ -102,6 +103,31 @@ const DEFAULT_STEPS: Step[] = [
   },
 ];
 
+const CALL_OUTCOMES = [
+  "Connected",
+  "Voicemail left",
+  "No answer",
+  "Wrong contact",
+  "Follow-up booked",
+  "Proposal requested",
+  "Needs more information",
+  "Not interested",
+  "Closed won",
+  "Closed lost",
+];
+
+const FOLLOW_UP_ACTIONS = [
+  "Send recap email",
+  "Schedule follow-up call",
+  "Book demo / walkthrough",
+  "Send proposal",
+  "Send pricing",
+  "Confirm decision makers",
+  "Confirm budget and timeline",
+  "Send resources",
+  "Nurture later",
+];
+
 function defaultFollowUpDateTime() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
@@ -120,6 +146,7 @@ function LiveCallPage() {
   const [person, setPerson] = useState<Person | null>(null);
   const [activeStep, setActiveStep] = useState(DEFAULT_STEPS[0].key);
   const [notes, setNotes] = useState("");
+  const [notesTouched, setNotesTouched] = useState(false);
   const [outcome, setOutcome] = useState("");
   const [followUpAction, setFollowUpAction] = useState("");
   const [followUpAt, setFollowUpAt] = useState(defaultFollowUpDateTime);
@@ -149,7 +176,8 @@ function LiveCallPage() {
         const opp = data as Opportunity;
         setOpportunity(opp);
         setNotes(opp.description ?? "");
-        setFollowUpAction(opp.next_step ?? "");
+        setNotesTouched(Boolean(opp.description));
+        setFollowUpAction(FOLLOW_UP_ACTIONS.includes(opp.next_step ?? "") ? opp.next_step ?? "" : "");
 
         const [companyResult, personResult] = await Promise.all([
           opp.company_id ? db.from("companies").select("id,name").eq("tenant_id", tenantId).eq("id", opp.company_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -168,10 +196,19 @@ function LiveCallPage() {
     void load();
   }, [tenantId, opportunityId]);
 
+  const recapNote = opportunity
+    ? buildRecapNote({ opportunity, company, person, step, outcome, followUpAction, followUpAt })
+    : "";
+
+  useEffect(() => {
+    if (!opportunity || notesTouched) return;
+    setNotes(recapNote);
+  }, [opportunity, notesTouched, recapNote]);
+
   const saveCall = async () => {
     if (!user || !tenantId || !opportunity) return;
     if (followUpAction.trim() && !followUpAt) {
-      toast.error("Follow-up due date is required when a follow-up task is entered");
+      toast.error("Follow-up due date is required when a follow-up task is selected");
       return;
     }
     setSaving(true);
@@ -251,6 +288,12 @@ function LiveCallPage() {
     toast.success("Email copied");
   };
 
+  const buildNotes = () => {
+    setNotes(recapNote);
+    setNotesTouched(true);
+    toast.success("Call recap built");
+  };
+
   return (
     <div className="flex min-h-[calc(100vh-48px)] flex-col bg-background">
       <header className="border-b bg-card/95 px-4 py-3 md:px-6">
@@ -287,8 +330,8 @@ function LiveCallPage() {
           </div>
         </aside>
 
-        <main className="min-w-0 p-4 md:p-6">
-          <section className="mb-4 rounded-xl border bg-card p-4 shadow-[var(--shadow-card)]">
+        <main className="min-w-0 space-y-4 p-4 md:p-6">
+          <section className="rounded-xl border bg-card p-4 shadow-[var(--shadow-card)]">
             <div className="grid gap-3 md:grid-cols-3">
               <Info label="Company" value={company?.name ?? "No company"} />
               <Info label="Contact" value={person?.full_name ?? "No primary person"} />
@@ -323,6 +366,53 @@ function LiveCallPage() {
               ))}
             </div>
           </section>
+
+          <section className="rounded-xl border bg-card p-5 shadow-[var(--shadow-card)]">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Wrap-up</div>
+                <h2 className="font-display text-lg font-semibold">Outcome, next action, and recap</h2>
+              </div>
+              <Button size="sm" variant="outline" onClick={buildNotes}>Build recap</Button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="call-outcome">Call outcome</Label>
+                <Select value={outcome || "not_set"} onValueChange={(value) => setOutcome(value === "not_set" ? "" : value)}>
+                  <SelectTrigger id="call-outcome"><SelectValue placeholder="Choose outcome…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="not_set">Choose outcome…</SelectItem>
+                    {CALL_OUTCOMES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="follow-up-action">Next action</Label>
+                <Select value={followUpAction || "none"} onValueChange={(value) => setFollowUpAction(value === "none" ? "" : value)}>
+                  <SelectTrigger id="follow-up-action"><SelectValue placeholder="Choose next action…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No follow-up task</SelectItem>
+                    {FOLLOW_UP_ACTIONS.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5 md:col-span-2">
+                <Label htmlFor="follow-up-at">Due date / time</Label>
+                <Input id="follow-up-at" type="datetime-local" value={followUpAt} onChange={(event) => setFollowUpAt(event.target.value)} disabled={!followUpAction} />
+              </div>
+              <div className="grid gap-1.5 md:col-span-2">
+                <Label htmlFor="call-notes">Call notes</Label>
+                <Textarea
+                  id="call-notes"
+                  value={notes}
+                  onChange={(event) => { setNotesTouched(true); setNotes(event.target.value); }}
+                  placeholder="Use Build recap to draft this from the current call details, then edit before logging."
+                  rows={8}
+                />
+              </div>
+            </div>
+          </section>
         </main>
 
         <aside className="space-y-4 border-t bg-card/50 p-4 lg:border-l lg:border-t-0">
@@ -354,34 +444,6 @@ function LiveCallPage() {
               <ResourceCard title="Objection handling" body="Use when the prospect is unsure on timing, budget, trust, or fit." />
               <ResourceCard title="Proposal prep" body="Use after qualification when the next step needs a concrete offer." />
             </div>
-          </section>
-
-          <section className="rounded-xl border bg-background p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <CalendarClock className="h-4 w-4" /> Follow-up task
-            </div>
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="follow-up-action">Next action</Label>
-                <Input id="follow-up-action" value={followUpAction} onChange={(event) => setFollowUpAction(event.target.value)} placeholder="Send recap and schedule proposal review" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="follow-up-at">Due date / time</Label>
-                <Input id="follow-up-at" type="datetime-local" value={followUpAt} onChange={(event) => setFollowUpAt(event.target.value)} />
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-xl border bg-background p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Clock className="h-4 w-4" /> Call outcome
-            </div>
-            <Textarea value={outcome} onChange={(event) => setOutcome(event.target.value)} placeholder="Connected, voicemail, follow-up booked…" rows={3} />
-          </section>
-
-          <section className="rounded-xl border bg-background p-4">
-            <Label htmlFor="call-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Call notes</Label>
-            <Textarea id="call-notes" className="mt-2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Capture discovery, objections, decision criteria, and next steps…" rows={8} />
           </section>
         </aside>
       </div>
@@ -421,6 +483,25 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       </div>
     </div>
   );
+}
+
+function buildRecapNote({ opportunity, company, person, step, outcome, followUpAction, followUpAt }: { opportunity: Opportunity; company: Company | null; person: Person | null; step: Step; outcome: string; followUpAction: string; followUpAt: string }) {
+  return [
+    `${new Date().toISOString().slice(0, 10)} — ${step.title} Call — ${opportunity.name}`,
+    company?.name ? `Company: ${company.name}` : "Company: Not attached",
+    person?.full_name ? `Contact: ${person.full_name}` : "Contact: Not attached",
+    outcome ? `Outcome: ${outcome}` : "Outcome: Not selected",
+    `Current step: ${step.title}`,
+    `Guidance: ${step.prompt}`,
+    `Capture focus: ${step.capture.join(", ")}`,
+    followUpAction ? `Next action: ${followUpAction}${followUpAt ? ` by ${new Date(followUpAt).toLocaleString()}` : ""}` : "Next action: None selected",
+    "",
+    "Important details / changes:",
+    "- ",
+    "",
+    "Rep notes:",
+    "- ",
+  ].join("\n");
 }
 
 function buildFollowUpEmail({ opportunity, company, person, outcome, notes, followUpAction, followUpAt }: { opportunity: Opportunity; company: Company | null; person: Person | null; outcome: string; notes: string; followUpAction: string; followUpAt: string }) {
