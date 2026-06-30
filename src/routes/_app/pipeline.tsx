@@ -240,7 +240,7 @@ function PipelinePage() {
                   <SheetDescription className="flex items-center gap-2"><StageChip stage={open.stage} /></SheetDescription>
                 </SheetHeader>
                 <div className="mt-6 space-y-4 text-sm">
-                  {open.course && <Detail icon={<MapPin className="h-3.5 w-3.5" />} label="Course" value={open.course} />}
+                  {open.course && <Detail icon={<MapPin className="h-3.5 w-3.5" />} label="Location" value={open.course} />}
                   {open.event_date && <Detail icon={<Calendar className="h-3.5 w-3.5" />} label="Event date" value={format(new Date(open.event_date), "EEEE, MMMM d, yyyy")} />}
 
                   {/* Editable stage */}
