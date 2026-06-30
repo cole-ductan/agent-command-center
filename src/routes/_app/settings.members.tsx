@@ -13,6 +13,29 @@ import { z } from "zod";
 
 const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
 
+// Common domain typos → suggested correction. We block submission and ask the
+// user to confirm/fix. Catches the most frequent fat-finger mistakes.
+const DOMAIN_TYPOS: Record<string, string> = {
+  "gmail.con": "gmail.com",
+  "gmail.cm": "gmail.com",
+  "gmail.co": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gmai.com": "gmail.com",
+  "gnail.com": "gmail.com",
+  "yahoo.con": "yahoo.com",
+  "yaho.com": "yahoo.com",
+  "hotmial.com": "hotmail.com",
+  "hotmal.com": "hotmail.com",
+  "outlok.com": "outlook.com",
+};
+
+function detectEmailTypo(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return null;
+  const domain = email.slice(at + 1).toLowerCase();
+  return DOMAIN_TYPOS[domain] ?? null;
+}
+
 export const Route = createFileRoute("/_app/settings/members")({
   component: MembersPage,
 });
@@ -85,8 +108,17 @@ function MembersPage() {
       setEmailError(parsed.error.issues[0]?.message ?? "Invalid email");
       return;
     }
-    setEmailError(null);
     const cleanEmail = parsed.data;
+    const typo = detectEmailTypo(cleanEmail);
+    if (typo) {
+      setEmailError(
+        `That domain looks like a typo. Did you mean ...@${typo}? Fix it or re-enter to confirm.`,
+      );
+      // Auto-correct the field so the next click sends; user can override.
+      setInviteEmail(cleanEmail.replace(/@[^@]+$/, `@${typo}`));
+      return;
+    }
+    setEmailError(null);
     const me = (await supabase.auth.getUser()).data.user;
     if (!me) return;
     setInviting(true);
@@ -107,6 +139,7 @@ function MembersPage() {
       setInviting(false);
     }
   };
+
 
   const publicAppOrigin = () => {
     const fallback = "https://call-wingman-pro.lovable.app";

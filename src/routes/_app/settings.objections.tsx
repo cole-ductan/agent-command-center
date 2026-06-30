@@ -25,8 +25,9 @@ type Objection = {
 };
 
 function ObjectionsPage() {
-  const { tenant } = useActiveTenant();
+  const { tenant, role } = useActiveTenant();
   const { user } = useAuth();
+  const canEdit = role === "owner" || role === "admin";
   const [rows, setRows] = useState<Objection[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -99,10 +100,14 @@ function ObjectionsPage() {
           <h1 className="font-display text-2xl font-semibold">Objections</h1>
           <p className="text-sm text-muted-foreground">
             Quick-reference responses your team can pull up during live calls.
+            {!canEdit && " Only admins and owners can edit this list."}
           </p>
         </div>
-        <Button onClick={addNew}><Plus className="mr-1 h-4 w-4" /> Add objection</Button>
+        {canEdit && (
+          <Button onClick={addNew}><Plus className="mr-1 h-4 w-4" /> Add objection</Button>
+        )}
       </header>
+
 
       {loading ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
@@ -118,19 +123,21 @@ function ObjectionsPage() {
           <Card key={row.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-mono text-muted-foreground">{row.slug}</CardTitle>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => save(row)} disabled={saving === row.id}>
-                  {saving === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => remove(row.id)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+              {canEdit && (
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" onClick={() => save(row)} disabled={saving === row.id}>
+                    {saving === row.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => remove(row.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-1.5">
                 <Label>Trigger phrase</Label>
-                <Input value={row.trigger} onChange={(e) => updateField(row.id, "trigger", e.target.value)} />
+                <Input value={row.trigger} onChange={(e) => updateField(row.id, "trigger", e.target.value)} disabled={!canEdit} />
               </div>
               <div className="grid gap-1.5">
                 <Label>Response</Label>
@@ -138,11 +145,12 @@ function ObjectionsPage() {
                   value={row.response}
                   onChange={(e) => updateField(row.id, "response", e.target.value)}
                   rows={4}
+                  disabled={!canEdit}
                 />
               </div>
               <div className="grid gap-1.5">
                 <Label>Tip (optional)</Label>
-                <Input value={row.tip ?? ""} onChange={(e) => updateField(row.id, "tip", e.target.value)} />
+                <Input value={row.tip ?? ""} onChange={(e) => updateField(row.id, "tip", e.target.value)} disabled={!canEdit} />
               </div>
             </CardContent>
           </Card>
