@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { CheckCircle2, ChevronLeft, Clock, FileText, Loader2, Mail, Phone, Save } from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronLeft, Clock, FileText, Loader2, Mail, Phone, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
@@ -101,6 +102,14 @@ const DEFAULT_STEPS: Step[] = [
   },
 ];
 
+function defaultFollowUpDateTime() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(9, 0, 0, 0);
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 function LiveCallPage() {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
@@ -112,6 +121,8 @@ function LiveCallPage() {
   const [activeStep, setActiveStep] = useState(DEFAULT_STEPS[0].key);
   const [notes, setNotes] = useState("");
   const [outcome, setOutcome] = useState("");
+  const [followUpAction, setFollowUpAction] = useState("");
+  const [followUpAt, setFollowUpAt] = useState(defaultFollowUpDateTime);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +149,7 @@ function LiveCallPage() {
         const opp = data as Opportunity;
         setOpportunity(opp);
         setNotes(opp.description ?? "");
+        setFollowUpAction(opp.next_step ?? "");
 
         const [companyResult, personResult] = await Promise.all([
           opp.company_id ? db.from("companies").select("id,name").eq("tenant_id", tenantId).eq("id", opp.company_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -158,10 +170,17 @@ function LiveCallPage() {
 
   const saveCall = async () => {
     if (!user || !tenantId || !opportunity) return;
+    if (followUpAction.trim() && !followUpAt) {
+      toast.error("Follow-up due date is required when a follow-up task is entered");
+      return;
+    }
     setSaving(true);
     try {
       const db = supabase as unknown as { from: (table: string) => any };
-      const summary = [outcome ? `Outcome: ${outcome}` : null, notes.trim()].filter(Boolean).join("\n\n");
+      const followUpSummary = followUpAction.trim()
+        ? `Follow-up task: ${followUpAction.trim()} (${new Date(followUpAt).toLocaleString()})`
+        : null;
+      const summary = [outcome ? `Outcome: ${outcome}` : null, notes.trim(), followUpSummary].filter(Boolean).join("\n\n");
       const { error: interactionError } = await db.from("interactions").insert({
         tenant_id: tenantId,
         company_id: opportunity.company_id,
@@ -173,16 +192,32 @@ function LiveCallPage() {
         subject: `Live call: ${opportunity.name}`,
         summary: summary || null,
         outcome: outcome || null,
-        metadata: { source: "neutral_live_call_shell", active_step: activeStep },
+        metadata: { source: "neutral_live_call_shell", active_step: activeStep, follow_up_action: followUpAction.trim() || null },
       });
       if (interactionError) throw interactionError;
+
+      if (followUpAction.trim()) {
+        const { error: taskError } = await db.from("tasks").insert({
+          tenant_id: tenantId,
+          user_id: user.id,
+          company_id: opportunity.company_id,
+          person_id: opportunity.primary_person_id,
+          opportunity_id: opportunity.id,
+          next_action: followUpAction.trim(),
+          next_action_at: new Date(followUpAt).toISOString(),
+          priority: "normal",
+          status: "pending",
+        });
+        if (taskError) throw taskError;
+      }
+
       const { error: opportunityError } = await db.from("opportunities").update({
         description: notes.trim() || null,
-        next_step: outcome || opportunity.next_step,
+        next_step: followUpAction.trim() || outcome || opportunity.next_step,
       }).eq("tenant_id", tenantId).eq("id", opportunity.id);
       if (opportunityError) throw opportunityError;
-      toast.success("Call logged");
-      navigate({ to: "/opportunities" });
+      toast.success(followUpAction.trim() ? "Call logged and follow-up task created" : "Call logged");
+      navigate({ to: "/opportunity-detail", search: { opportunityId: opportunity.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to log call");
     } finally {
@@ -209,7 +244,7 @@ function LiveCallPage() {
     .replace("{{time}}", "a specific time");
 
   const emailSubject = `Next steps for ${opportunity.name}`;
-  const emailBody = buildFollowUpEmail({ opportunity, company, person, outcome, notes });
+  const emailBody = buildFollowUpEmail({ opportunity, company, person, outcome, notes, followUpAction, followUpAt });
 
   const copyEmail = async () => {
     await navigator.clipboard.writeText(`Subject: ${emailSubject}\n\n${emailBody}`);
@@ -323,6 +358,22 @@ function LiveCallPage() {
 
           <section className="rounded-xl border bg-background p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <CalendarClock className="h-4 w-4" /> Follow-up task
+            </div>
+            <div className="grid gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="follow-up-action">Next action</Label>
+                <Input id="follow-up-action" value={followUpAction} onChange={(event) => setFollowUpAction(event.target.value)} placeholder="Send recap and schedule proposal review" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="follow-up-at">Due date / time</Label>
+                <Input id="follow-up-at" type="datetime-local" value={followUpAt} onChange={(event) => setFollowUpAt(event.target.value)} />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-background p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Clock className="h-4 w-4" /> Call outcome
             </div>
             <Textarea value={outcome} onChange={(event) => setOutcome(event.target.value)} placeholder="Connected, voicemail, follow-up booked…" rows={3} />
@@ -372,7 +423,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-function buildFollowUpEmail({ opportunity, company, person, outcome, notes }: { opportunity: Opportunity; company: Company | null; person: Person | null; outcome: string; notes: string }) {
+function buildFollowUpEmail({ opportunity, company, person, outcome, notes, followUpAction, followUpAt }: { opportunity: Opportunity; company: Company | null; person: Person | null; outcome: string; notes: string; followUpAction: string; followUpAt: string }) {
   const firstName = person?.full_name?.split(" ")[0] || "there";
   return [
     `Hi ${firstName},`,
@@ -382,7 +433,7 @@ function buildFollowUpEmail({ opportunity, company, person, outcome, notes }: { 
     notes.trim() ? `\nQuick recap:\n${notes.trim()}` : "",
     "",
     "Next step:",
-    opportunity.next_step || "Let’s confirm the best follow-up time and who else should be included.",
+    followUpAction.trim() ? `${followUpAction.trim()}${followUpAt ? ` by ${new Date(followUpAt).toLocaleString()}` : ""}.` : opportunity.next_step || "Let’s confirm the best follow-up time and who else should be included.",
     "",
     "Thanks,",
     "",
