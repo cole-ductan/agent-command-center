@@ -71,7 +71,10 @@ This PR adds the first visible UI slice on top of the RepPilot Core CRM schema f
 
 ## Suggested manual seed snippets
 
-Use a real `tenant_id` from your workspace.
+Use real IDs from your workspace:
+
+- `YOUR_TENANT_ID`
+- `YOUR_USER_ID`
 
 ```sql
 insert into public.companies (tenant_id, name, industry)
@@ -89,6 +92,6 @@ values ('YOUR_TENANT_ID', 'Acme Dispatch Workflow Rollout', 'discovery', 'open',
 ```
 
 ```sql
-insert into public.tasks (tenant_id, next_action, next_action_at, priority, status)
-values ('YOUR_TENANT_ID', 'Follow up with Jordan about rollout timeline', now(), 'medium', 'pending');
+insert into public.tasks (tenant_id, user_id, next_action, next_action_at, priority, status)
+values ('YOUR_TENANT_ID', 'YOUR_USER_ID', 'Follow up with Jordan about rollout timeline', now(), 'medium', 'pending');
 ```
