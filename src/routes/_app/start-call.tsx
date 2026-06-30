@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, Phone } from "lucide-react";
+import { Loader2, Phone, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,11 +24,13 @@ type ExistingOpportunity = {
   updated_at: string;
 };
 
+type SaveMode = "save" | "start";
+
 function StartCallPage() {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const navigate = useNavigate();
-  const [saving, setSaving] = useState(false);
+  const [savingMode, setSavingMode] = useState<SaveMode | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [existingOpportunities, setExistingOpportunities] = useState<ExistingOpportunity[]>([]);
   const [selectedOpportunityId, setSelectedOpportunityId] = useState("");
@@ -78,14 +80,13 @@ function StartCallPage() {
     navigate({ to: "/live-call", search: { opportunityId: selectedOpportunityId } });
   };
 
-  const submit = async (event?: React.FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
+  const saveOpportunity = async (mode: SaveMode) => {
     if (!user || !tenantId) return toast.error("No active workspace");
     if (!opportunityName.trim()) return toast.error("Opportunity name is required");
     if (!contactName.trim() && (phone.trim() || email.trim())) return toast.error("Contact name is required when phone or email is entered");
     const valueAmount = estimatedValue.trim() ? Number(estimatedValue) : null;
     if (valueAmount !== null && Number.isNaN(valueAmount)) return toast.error("Estimated value must be a number");
-    setSaving(true);
+    setSavingMode(mode);
     try {
       const result = await createStartOpportunity({
         tenantId,
@@ -99,13 +100,23 @@ function StartCallPage() {
         estimatedValue: valueAmount,
         notes: [notes, location ? `Location: ${location}` : null].filter(Boolean).join("\n"),
       });
-      toast.success("Opportunity created. Opening neutral call guidance.");
-      navigate({ to: "/live-call", search: { opportunityId: result.opportunityId } });
+      if (mode === "start") {
+        toast.success("Opportunity created. Opening neutral call guidance.");
+        navigate({ to: "/live-call", search: { opportunityId: result.opportunityId } });
+      } else {
+        toast.success("Opportunity saved");
+        navigate({ to: "/opportunity-detail", search: { opportunityId: result.opportunityId } });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create opportunity");
     } finally {
-      setSaving(false);
+      setSavingMode(null);
     }
+  };
+
+  const submit = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    await saveOpportunity("start");
   };
 
   return (
@@ -140,7 +151,7 @@ function StartCallPage() {
         <div className="mb-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">RepPilot Core CRM</p>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Start a New Call</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity, then open live call guidance.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity, then either save it or start live call guidance.</p>
         </div>
         <form className="grid gap-4" onSubmit={submit}>
           <TextField id="opportunity-name" label="Opportunity name *" value={opportunityName} onChange={setOpportunityName} placeholder="Acme Q3 rollout" />
@@ -159,10 +170,16 @@ function StartCallPage() {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Anything the rep should know before the call…" />
           </div>
-          <Button type="submit" disabled={saving} className="w-full">
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}
-            {saving ? "Creating…" : "Save & Start Call"}
-          </Button>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Button type="button" variant="outline" disabled={savingMode !== null} onClick={() => void saveOpportunity("save")}>
+              {savingMode === "save" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {savingMode === "save" ? "Saving…" : "Save Opportunity"}
+            </Button>
+            <Button type="submit" disabled={savingMode !== null}>
+              {savingMode === "start" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}
+              {savingMode === "start" ? "Creating…" : "Save & Start Call"}
+            </Button>
+          </div>
         </form>
       </section>
     </div>
