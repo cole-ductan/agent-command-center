@@ -50,8 +50,8 @@ function StartCallPage() {
         estimatedValue: valueAmount,
         notes: [notes, location ? `Location: ${location}` : null].filter(Boolean).join("\n"),
       });
-      toast.success("Opportunity created. Opening call guidance.");
-      navigate({ to: "/call", search: { eventId: result.legacyEventId } });
+      toast.success("Opportunity created. Opening neutral call guidance.");
+      navigate({ to: "/live-call", search: { opportunityId: result.opportunityId } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create opportunity");
     } finally {
