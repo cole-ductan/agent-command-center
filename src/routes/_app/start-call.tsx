@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { createStartOpportunity } from "@/lib/startOpportunity";
@@ -14,11 +16,22 @@ export const Route = createFileRoute("/_app/start-call")({
   component: StartCallPage,
 });
 
+type ExistingOpportunity = {
+  id: string;
+  name: string;
+  stage_key: string;
+  status: string;
+  updated_at: string;
+};
+
 function StartCallPage() {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(true);
+  const [existingOpportunities, setExistingOpportunities] = useState<ExistingOpportunity[]>([]);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState("");
   const [opportunityName, setOpportunityName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -28,6 +41,42 @@ function StartCallPage() {
   const [targetDate, setTargetDate] = useState("");
   const [estimatedValue, setEstimatedValue] = useState("");
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    const loadExisting = async () => {
+      if (!tenantId) {
+        setExistingOpportunities([]);
+        setLoadingExisting(false);
+        return;
+      }
+      setLoadingExisting(true);
+      try {
+        const db = supabase as unknown as { from: (table: string) => any };
+        const { data, error } = await db
+          .from("opportunities")
+          .select("id,name,stage_key,status,updated_at")
+          .eq("tenant_id", tenantId)
+          .eq("status", "open")
+          .order("updated_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        setExistingOpportunities((data ?? []) as ExistingOpportunity[]);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not load opportunities");
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+    void loadExisting();
+  }, [tenantId]);
+
+  const openExisting = () => {
+    if (!selectedOpportunityId) {
+      toast.error("Choose an opportunity first");
+      return;
+    }
+    navigate({ to: "/live-call", search: { opportunityId: selectedOpportunityId } });
+  };
 
   const submit = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -62,10 +111,35 @@ function StartCallPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
       <Button asChild size="sm" variant="ghost" className="mb-6"><Link to="/">Dashboard</Link></Button>
+      <section className="mb-5 rounded-xl border bg-card p-5 shadow-[var(--shadow-card)] md:p-6">
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Existing Opportunities</p>
+          <h2 className="font-display text-xl font-semibold">Enter a call with an existing opportunity</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Pick an open opportunity and jump straight into live call guidance.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+          <Select value={selectedOpportunityId} onValueChange={setSelectedOpportunityId} disabled={loadingExisting || existingOpportunities.length === 0}>
+            <SelectTrigger>
+              <SelectValue placeholder={loadingExisting ? "Loading opportunities…" : existingOpportunities.length === 0 ? "No open opportunities yet" : "Choose an opportunity…"} />
+            </SelectTrigger>
+            <SelectContent>
+              {existingOpportunities.map((opportunity) => (
+                <SelectItem key={opportunity.id} value={opportunity.id}>
+                  {opportunity.name} · {humanize(opportunity.stage_key)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={openExisting} disabled={!selectedOpportunityId}>
+            <Phone className="mr-2 h-4 w-4" />Open Call Guidance
+          </Button>
+        </div>
+      </section>
+
       <section className="rounded-xl border bg-card p-5 shadow-[var(--shadow-card)] md:p-6">
         <div className="mb-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">RepPilot Core CRM</p>
-          <h1 className="font-display text-2xl font-semibold md:text-3xl">Start a Call</h1>
+          <h1 className="font-display text-2xl font-semibold md:text-3xl">Start a New Call</h1>
           <p className="mt-1 text-sm text-muted-foreground">Create a neutral opportunity, then open live call guidance.</p>
         </div>
         <form className="grid gap-4" onSubmit={submit}>
@@ -102,4 +176,8 @@ function TextField({ id, label, value, onChange, placeholder, type = "text" }: {
       <Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </div>
   );
+}
+
+function humanize(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
