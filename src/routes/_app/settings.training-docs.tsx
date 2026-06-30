@@ -89,39 +89,42 @@ function TrainingDocsPage() {
         <p className="text-sm text-muted-foreground">
           Reference materials, playbooks, and PDFs your team can pull up. (Direct file upload coming next —
           for now, paste a link to a Drive / Notion / PDF URL.)
+          {!canEdit && " Only admins and owners can add or remove docs."}
         </p>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a document</CardTitle>
-          <CardDescription>Link to anything on the web your team should reference.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-1.5">
-            <Label>Title *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Onboarding playbook" />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Link URL</Label>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
-          </div>
-          <div className="grid gap-1.5 md:grid-cols-2">
+      {canEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a document</CardTitle>
+            <CardDescription>Link to anything on the web your team should reference.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <div className="grid gap-1.5">
-              <Label>Category</Label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Scripts, Offers, Training…" />
+              <Label>Title *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Onboarding playbook" />
             </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Description</Label>
-            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} />
-          </div>
-          <Button onClick={add} disabled={adding || !title.trim()}>
-            {adding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            Add document
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="grid gap-1.5">
+              <Label>Link URL</Label>
+              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+            </div>
+            <div className="grid gap-1.5 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label>Category</Label>
+                <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Scripts, Offers, Training…" />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Description</Label>
+              <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} />
+            </div>
+            <Button onClick={add} disabled={adding || !title.trim()}>
+              {adding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Add document
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-2">
         {loading ? (
@@ -153,9 +156,11 @@ function TrainingDocsPage() {
                       </a>
                     </Button>
                   )}
-                  <Button size="icon" variant="ghost" onClick={() => remove(d.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canEdit && (
+                    <Button size="icon" variant="ghost" onClick={() => remove(d.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

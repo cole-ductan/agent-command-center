@@ -91,9 +91,10 @@ function TemplatesPage() {
                 )}
                 <Button
                   onClick={() => apply(t)}
-                  disabled={applying !== null || t.slug === "blank"}
+                  disabled={!canEdit || applying !== null || t.slug === "blank"}
                   size="sm"
                   variant={t.slug === "blank" ? "outline" : "default"}
+                  title={!canEdit ? "Only admins or owners can apply templates" : undefined}
                 >
                   {applying === t.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t.slug === "blank" ? "Nothing to apply" : "Apply to this workspace"}
