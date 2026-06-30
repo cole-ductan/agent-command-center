@@ -13,10 +13,17 @@ export type StartOpportunityInput = {
   notes?: string;
 };
 
-export async function createStartOpportunity(input: StartOpportunityInput): Promise<string> {
+export type StartOpportunityResult = {
+  opportunityId: string;
+  legacyEventId: string;
+};
+
+export async function createStartOpportunity(input: StartOpportunityInput): Promise<StartOpportunityResult> {
   const db = supabase as unknown as { from: (table: string) => any };
   let companyId: string | null = null;
   let personId: string | null = null;
+  let legacyOrgId: string | null = null;
+  let legacyContactId: string | null = null;
 
   if (input.companyName?.trim()) {
     const { data, error } = await db.from("companies").insert({
@@ -27,6 +34,14 @@ export async function createStartOpportunity(input: StartOpportunityInput): Prom
     }).select("id").single();
     if (error) throw error;
     companyId = data.id;
+
+    const { data: legacyOrg, error: legacyOrgError } = await db.from("organizations").insert({
+      tenant_id: input.tenantId,
+      user_id: input.userId,
+      name: input.companyName.trim(),
+    }).select("id").single();
+    if (legacyOrgError) throw legacyOrgError;
+    legacyOrgId = legacyOrg.id;
   }
 
   if (input.contactName?.trim()) {
@@ -41,6 +56,17 @@ export async function createStartOpportunity(input: StartOpportunityInput): Prom
     }).select("id").single();
     if (error) throw error;
     personId = data.id;
+
+    const { data: legacyContact, error: legacyContactError } = await db.from("contacts").insert({
+      tenant_id: input.tenantId,
+      user_id: input.userId,
+      organization_id: legacyOrgId,
+      name: input.contactName.trim(),
+      email: input.contactEmail?.trim() || null,
+      phone: input.contactPhone?.trim() || null,
+    }).select("id").single();
+    if (legacyContactError) throw legacyContactError;
+    legacyContactId = legacyContact.id;
   }
 
   const { data, error } = await db.from("opportunities").insert({
@@ -70,5 +96,20 @@ export async function createStartOpportunity(input: StartOpportunityInput): Prom
     if (linkError) throw linkError;
   }
 
-  return data.id;
+  const { data: legacyEvent, error: legacyEventError } = await db.from("events").insert({
+    tenant_id: input.tenantId,
+    user_id: input.userId,
+    organization_id: legacyOrgId,
+    primary_contact_id: legacyContactId,
+    event_name: input.opportunityName.trim(),
+    event_date: input.targetDate || null,
+    notes: [input.notes?.trim(), data?.id ? `Core opportunity: ${data.id}` : null].filter(Boolean).join("\n") || null,
+    stage: "new_lead",
+  }).select("id").single();
+  if (legacyEventError) throw legacyEventError;
+
+  return {
+    opportunityId: data.id,
+    legacyEventId: legacyEvent.id,
+  };
 }
