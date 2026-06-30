@@ -158,6 +158,11 @@ type GmailListItem = {
   unread: boolean;
 };
 
+const ListGmailSchema = z.object({
+  maxResults: z.number().int().min(1).max(50).optional(),
+  q: z.string().max(500).optional(),
+});
+
 export const listGmailMessages = createServerFn({ method: "POST" })
   .middleware([withSupabaseSession])
   .inputValidator((input) => ListGmailSchema.parse(input ?? {}))
@@ -166,10 +171,6 @@ export const listGmailMessages = createServerFn({ method: "POST" })
     return { messages: [] };
   });
 
-const ListGmailSchema = z.object({
-  maxResults: z.number().int().min(1).max(50).optional(),
-  q: z.string().max(500).optional(),
-});
 
 
 /* ------------------------------------------------------------------ *
