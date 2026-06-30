@@ -72,7 +72,7 @@ const NAV = [
   { to: "/people", label: "People", Icon: Users },
   { to: "/opportunities", label: "Opportunities", Icon: KanbanSquare },
   { to: "/tasks", label: "Tasks", Icon: CalendarClock },
-  { to: "/call", label: "Live Call", Icon: Phone },
+  { to: "/start-call", label: "Start Call", Icon: Phone },
   { to: "/pipeline", label: "Pipeline", Icon: KanbanSquare },
   { to: "/follow-ups", label: "Follow-Ups", Icon: CalendarClock },
   { to: "/inbox", label: "Inbox", Icon: Mail },
@@ -214,11 +214,11 @@ function AppShellInner() {
                   <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuLabel className="text-xs">Quick add</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setAddLeadOpen(true); }}>
-                      <UserPlus className="h-4 w-4" /> Add Lead
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); navigate({ to: "/start-call" }); }}>
+                      <UserPlus className="h-4 w-4" /> New Opportunity
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setAddLeadOpen(true); }}>
-                      <CalendarPlus className="h-4 w-4" /> Add Event
+                      <CalendarPlus className="h-4 w-4" /> Legacy Lead
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={(e) => {
@@ -241,7 +241,7 @@ function AppShellInner() {
                 </DropdownMenu>
                 <AddLeadDialog trigger={null} open={addLeadOpen} onOpenChange={setAddLeadOpen} />
                 <Button asChild size="sm" variant="default">
-                  <Link to="/call" search={{ new: "1" } as any}>
+                  <Link to="/start-call">
                     <Phone className="mr-1 h-3.5 w-3.5" />Call
                   </Link>
                 </Button>
