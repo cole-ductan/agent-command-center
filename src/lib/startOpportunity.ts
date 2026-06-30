@@ -55,9 +55,20 @@ export async function createStartOpportunity(input: StartOpportunityInput): Prom
     value_amount: input.estimatedValue ?? null,
     expected_close_date: input.targetDate || null,
     next_step: "Start call",
-    notes: input.notes?.trim() || null,
+    description: input.notes?.trim() || null,
   }).select("id").single();
   if (error) throw error;
+
+  if (personId && data?.id) {
+    const { error: linkError } = await db.from("opportunity_people").insert({
+      tenant_id: input.tenantId,
+      opportunity_id: data.id,
+      person_id: personId,
+      role: "Primary contact",
+      is_primary: true,
+    });
+    if (linkError) throw linkError;
+  }
 
   return data.id;
 }
