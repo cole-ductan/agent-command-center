@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { CheckCircle2, ChevronLeft, Clock, Loader2, Phone, Save } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Clock, FileText, Loader2, Mail, Phone, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -208,6 +208,14 @@ function LiveCallPage() {
     .replace("{{pain}}", "their stated problem")
     .replace("{{time}}", "a specific time");
 
+  const emailSubject = `Next steps for ${opportunity.name}`;
+  const emailBody = buildFollowUpEmail({ opportunity, company, person, outcome, notes });
+
+  const copyEmail = async () => {
+    await navigator.clipboard.writeText(`Subject: ${emailSubject}\n\n${emailBody}`);
+    toast.success("Email copied");
+  };
+
   return (
     <div className="flex min-h-[calc(100vh-48px)] flex-col bg-background">
       <header className="border-b bg-card/95 px-4 py-3 md:px-6">
@@ -226,7 +234,7 @@ function LiveCallPage() {
         </div>
       </header>
 
-      <div className="grid flex-1 gap-0 lg:grid-cols-[260px_minmax(0,1fr)_360px]">
+      <div className="grid flex-1 gap-0 lg:grid-cols-[260px_minmax(0,1fr)_390px]">
         <aside className="border-b bg-card/50 p-4 lg:border-b-0 lg:border-r">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Call steps</div>
           <div className="space-y-1">
@@ -282,17 +290,48 @@ function LiveCallPage() {
           </section>
         </main>
 
-        <aside className="border-t bg-card/50 p-4 lg:border-l lg:border-t-0">
-          <div className="mb-4 rounded-xl border bg-background p-4">
+        <aside className="space-y-4 border-t bg-card/50 p-4 lg:border-l lg:border-t-0">
+          <section className="rounded-xl border bg-background p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="h-4 w-4" /> Script guidance
+            </div>
+            <p className="text-sm font-medium">{step.title}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{script}</p>
+            <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-xs text-muted-foreground">
+              Keep the call conversational. Use the script as a rail, not a cage.
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-background p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Mail className="h-4 w-4" /> Follow-up email
+            </div>
+            <Label className="text-xs">Subject</Label>
+            <div className="mt-1 rounded-md border bg-secondary/30 px-3 py-2 text-sm">{emailSubject}</div>
+            <Textarea className="mt-3" value={emailBody} readOnly rows={7} />
+            <Button size="sm" variant="outline" className="mt-3 w-full" onClick={copyEmail}>Copy email</Button>
+          </section>
+
+          <section className="rounded-xl border bg-background p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resources</div>
+            <div className="space-y-2">
+              <ResourceCard title="Discovery recap" body="Use after a good fit call to summarize pain, fit, and next step." />
+              <ResourceCard title="Objection handling" body="Use when the prospect is unsure on timing, budget, trust, or fit." />
+              <ResourceCard title="Proposal prep" body="Use after qualification when the next step needs a concrete offer." />
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-background p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Clock className="h-4 w-4" /> Call outcome
             </div>
             <Textarea value={outcome} onChange={(event) => setOutcome(event.target.value)} placeholder="Connected, voicemail, follow-up booked…" rows={3} />
-          </div>
-          <div className="rounded-xl border bg-background p-4">
+          </section>
+
+          <section className="rounded-xl border bg-background p-4">
             <Label htmlFor="call-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Call notes</Label>
-            <Textarea id="call-notes" className="mt-2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Capture discovery, objections, decision criteria, and next steps…" rows={10} />
-          </div>
+            <Textarea id="call-notes" className="mt-2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Capture discovery, objections, decision criteria, and next steps…" rows={8} />
+          </section>
         </aside>
       </div>
     </div>
@@ -304,6 +343,15 @@ function Info({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-1 font-medium">{value}</div>
+    </div>
+  );
+}
+
+function ResourceCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border bg-secondary/30 p-3">
+      <div className="text-sm font-medium">{title}</div>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{body}</p>
     </div>
   );
 }
@@ -322,6 +370,23 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       </div>
     </div>
   );
+}
+
+function buildFollowUpEmail({ opportunity, company, person, outcome, notes }: { opportunity: Opportunity; company: Company | null; person: Person | null; outcome: string; notes: string }) {
+  const firstName = person?.full_name?.split(" ")[0] || "there";
+  return [
+    `Hi ${firstName},`,
+    "",
+    `Thanks for taking the time to talk about ${opportunity.name}${company?.name ? ` with ${company.name}` : ""}.`,
+    outcome ? `Based on our conversation, the current outcome is: ${outcome}.` : "Based on our conversation, I wanted to send a quick recap and next step.",
+    notes.trim() ? `\nQuick recap:\n${notes.trim()}` : "",
+    "",
+    "Next step:",
+    opportunity.next_step || "Let’s confirm the best follow-up time and who else should be included.",
+    "",
+    "Thanks,",
+    "",
+  ].filter(Boolean).join("\n");
 }
 
 function humanize(value: string) {
