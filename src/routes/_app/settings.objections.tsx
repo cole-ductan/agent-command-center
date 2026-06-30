@@ -25,8 +25,9 @@ type Objection = {
 };
 
 function ObjectionsPage() {
-  const { tenant } = useActiveTenant();
+  const { tenant, role } = useActiveTenant();
   const { user } = useAuth();
+  const canEdit = role === "owner" || role === "admin";
   const [rows, setRows] = useState<Objection[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -99,10 +100,14 @@ function ObjectionsPage() {
           <h1 className="font-display text-2xl font-semibold">Objections</h1>
           <p className="text-sm text-muted-foreground">
             Quick-reference responses your team can pull up during live calls.
+            {!canEdit && " Only admins and owners can edit this list."}
           </p>
         </div>
-        <Button onClick={addNew}><Plus className="mr-1 h-4 w-4" /> Add objection</Button>
+        {canEdit && (
+          <Button onClick={addNew}><Plus className="mr-1 h-4 w-4" /> Add objection</Button>
+        )}
       </header>
+
 
       {loading ? (
         <div className="text-muted-foreground text-sm">Loading…</div>
