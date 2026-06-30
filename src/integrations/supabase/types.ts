@@ -157,6 +157,89 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          custom_fields: Json
+          domain: string | null
+          id: string
+          industry: string | null
+          name: string
+          notes: string | null
+          owner_id: string | null
+          phone: string | null
+          postal_code: string | null
+          region: string | null
+          size_label: string | null
+          source: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_fields?: Json
+          domain?: string | null
+          id?: string
+          industry?: string | null
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          region?: string | null
+          size_label?: string | null
+          source?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_fields?: Json
+          domain?: string | null
+          id?: string
+          industry?: string | null
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          region?: string | null
+          size_label?: string | null
+          source?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           created_at: string
@@ -204,6 +287,62 @@ export type Database = {
           },
           {
             foreignKeyName: "contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dashboard_widgets: {
+        Row: {
+          area: string
+          config: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          is_visible: boolean
+          sort_order: number
+          tenant_id: string
+          title: string
+          updated_at: string
+          widget_key: string
+          widget_type: string
+          width: string | null
+        }
+        Insert: {
+          area?: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_visible?: boolean
+          sort_order?: number
+          tenant_id: string
+          title: string
+          updated_at?: string
+          widget_key: string
+          widget_type: string
+          width?: string | null
+        }
+        Update: {
+          area?: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_visible?: boolean
+          sort_order?: number
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          widget_key?: string
+          widget_type?: string
+          width?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_widgets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -612,6 +751,92 @@ export type Database = {
           },
         ]
       }
+      interactions: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          direction: string | null
+          duration_seconds: number | null
+          id: string
+          interaction_type: string
+          metadata: Json
+          occurred_at: string
+          opportunity_id: string | null
+          outcome: string | null
+          person_id: string | null
+          subject: string | null
+          summary: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string | null
+          duration_seconds?: number | null
+          id?: string
+          interaction_type?: string
+          metadata?: Json
+          occurred_at?: string
+          opportunity_id?: string | null
+          outcome?: string | null
+          person_id?: string | null
+          subject?: string | null
+          summary?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string | null
+          duration_seconds?: number | null
+          id?: string
+          interaction_type?: string
+          metadata?: Json
+          occurred_at?: string
+          opportunity_id?: string | null
+          outcome?: string | null
+          person_id?: string | null
+          subject?: string | null
+          summary?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interactions_company_tenant_fk"
+            columns: ["tenant_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "interactions_opportunity_tenant_fk"
+            columns: ["tenant_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "interactions_person_tenant_fk"
+            columns: ["tenant_id", "person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "interactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       next_action_presets: {
         Row: {
           created_at: string
@@ -700,9 +925,12 @@ export type Database = {
       notes: {
         Row: {
           body: string
+          company_id: string | null
           created_at: string
           folder_id: string | null
           id: string
+          opportunity_id: string | null
+          person_id: string | null
           pinned: boolean
           reminder_at: string | null
           task_id: string | null
@@ -713,9 +941,12 @@ export type Database = {
         }
         Insert: {
           body?: string
+          company_id?: string | null
           created_at?: string
           folder_id?: string | null
           id?: string
+          opportunity_id?: string | null
+          person_id?: string | null
           pinned?: boolean
           reminder_at?: string | null
           task_id?: string | null
@@ -726,9 +957,12 @@ export type Database = {
         }
         Update: {
           body?: string
+          company_id?: string | null
           created_at?: string
           folder_id?: string | null
           id?: string
+          opportunity_id?: string | null
+          person_id?: string | null
           pinned?: boolean
           reminder_at?: string | null
           task_id?: string | null
@@ -739,11 +973,32 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "notes_company_tenant_fk"
+            columns: ["tenant_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
             foreignKeyName: "notes_folder_id_fkey"
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "note_folders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_opportunity_tenant_fk"
+            columns: ["tenant_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "notes_person_tenant_fk"
+            columns: ["tenant_id", "person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["tenant_id", "id"]
           },
           {
             foreignKeyName: "notes_task_id_fkey"
@@ -917,6 +1172,158 @@ export type Database = {
           },
         ]
       }
+      opportunities: {
+        Row: {
+          closed_at: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          custom_fields: Json
+          description: string | null
+          expected_close_date: string | null
+          id: string
+          loss_reason: string | null
+          name: string
+          next_step: string | null
+          owner_id: string | null
+          primary_person_id: string | null
+          probability: number | null
+          source: string | null
+          stage_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_amount: number | null
+        }
+        Insert: {
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          custom_fields?: Json
+          description?: string | null
+          expected_close_date?: string | null
+          id?: string
+          loss_reason?: string | null
+          name: string
+          next_step?: string | null
+          owner_id?: string | null
+          primary_person_id?: string | null
+          probability?: number | null
+          source?: string | null
+          stage_key?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          value_amount?: number | null
+        }
+        Update: {
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          custom_fields?: Json
+          description?: string | null
+          expected_close_date?: string | null
+          id?: string
+          loss_reason?: string | null
+          name?: string
+          next_step?: string | null
+          owner_id?: string | null
+          primary_person_id?: string | null
+          probability?: number | null
+          source?: string | null
+          stage_key?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          value_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_company_tenant_fk"
+            columns: ["tenant_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunities_primary_person_tenant_fk"
+            columns: ["tenant_id", "primary_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_people: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean
+          opportunity_id: string
+          person_id: string
+          relationship_notes: string | null
+          role: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          opportunity_id: string
+          person_id: string
+          relationship_notes?: string | null
+          role?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          opportunity_id?: string
+          person_id?: string
+          relationship_notes?: string | null
+          role?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_people_opportunity_tenant_fk"
+            columns: ["tenant_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_people_person_tenant_fk"
+            columns: ["tenant_id", "person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_people_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           cause: string | null
@@ -951,6 +1358,87 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "organizations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          custom_fields: Json
+          email: string | null
+          first_name: string | null
+          full_name: string
+          id: string
+          last_name: string | null
+          linkedin_url: string | null
+          mobile_phone: string | null
+          notes: string | null
+          owner_id: string | null
+          phone: string | null
+          source: string | null
+          status: string
+          tenant_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_fields?: Json
+          email?: string | null
+          first_name?: string | null
+          full_name: string
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          mobile_phone?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          source?: string | null
+          status?: string
+          tenant_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_fields?: Json
+          email?: string | null
+          first_name?: string | null
+          full_name?: string
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          mobile_phone?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          source?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_company_tenant_fk"
+            columns: ["tenant_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "people_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1212,11 +1700,14 @@ export type Database = {
       }
       tasks: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string | null
           id: string
           next_action: string
           next_action_at: string
+          opportunity_id: string | null
+          person_id: string | null
           priority: Database["public"]["Enums"]["task_priority"]
           status: Database["public"]["Enums"]["task_status"]
           tenant_id: string
@@ -1224,11 +1715,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id?: string | null
           id?: string
           next_action: string
           next_action_at: string
+          opportunity_id?: string | null
+          person_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
           tenant_id: string
@@ -1236,11 +1730,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string | null
           id?: string
           next_action?: string
           next_action_at?: string
+          opportunity_id?: string | null
+          person_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
           tenant_id?: string
@@ -1249,11 +1746,32 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tasks_company_tenant_fk"
+            columns: ["tenant_id", "company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
             foreignKeyName: "tasks_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_opportunity_tenant_fk"
+            columns: ["tenant_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "tasks_person_tenant_fk"
+            columns: ["tenant_id", "person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["tenant_id", "id"]
           },
           {
             foreignKeyName: "tasks_tenant_id_fkey"
@@ -1492,6 +2010,361 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "weekly_goals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_score_rules: {
+        Row: {
+          activity_type: string
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          period: string
+          points: number
+          rule_key: string
+          sort_order: number
+          target_count: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_type: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          period?: string
+          points?: number
+          rule_key: string
+          sort_order?: number
+          target_count?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_type?: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          period?: string
+          points?: number
+          rule_key?: string
+          sort_order?: number
+          target_count?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_score_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_capture_fields: {
+        Row: {
+          config: Json
+          created_at: string
+          default_value: string | null
+          field_key: string
+          field_type: string
+          helper_text: string | null
+          id: string
+          is_required: boolean
+          label: string
+          options: Json
+          sort_order: number
+          target_column: string | null
+          target_table: string | null
+          tenant_id: string
+          updated_at: string
+          workflow_config_id: string
+          workflow_step_id: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          default_value?: string | null
+          field_key: string
+          field_type?: string
+          helper_text?: string | null
+          id?: string
+          is_required?: boolean
+          label: string
+          options?: Json
+          sort_order?: number
+          target_column?: string | null
+          target_table?: string | null
+          tenant_id: string
+          updated_at?: string
+          workflow_config_id: string
+          workflow_step_id?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          default_value?: string | null
+          field_key?: string
+          field_type?: string
+          helper_text?: string | null
+          id?: string
+          is_required?: boolean
+          label?: string
+          options?: Json
+          sort_order?: number
+          target_column?: string | null
+          target_table?: string | null
+          tenant_id?: string
+          updated_at?: string
+          workflow_config_id?: string
+          workflow_step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_capture_fields_config_tenant_fk"
+            columns: ["tenant_id", "workflow_config_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_configs"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "workflow_capture_fields_step_tenant_fk"
+            columns: ["tenant_id", "workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "workflow_capture_fields_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_configs: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          slug: string
+          source: string
+          template_slug: string | null
+          tenant_id: string
+          updated_at: string
+          workflow_type: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          slug: string
+          source?: string
+          template_slug?: string | null
+          tenant_id: string
+          updated_at?: string
+          workflow_type?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          slug?: string
+          source?: string
+          template_slug?: string | null
+          tenant_id?: string
+          updated_at?: string
+          workflow_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_decision_branches: {
+        Row: {
+          branch_key: string
+          condition: Json
+          created_at: string
+          from_step_id: string
+          id: string
+          label: string
+          patch: Json
+          sort_order: number
+          tenant_id: string
+          to_step_id: string | null
+          updated_at: string
+          variant: string | null
+          workflow_config_id: string
+        }
+        Insert: {
+          branch_key: string
+          condition?: Json
+          created_at?: string
+          from_step_id: string
+          id?: string
+          label: string
+          patch?: Json
+          sort_order?: number
+          tenant_id: string
+          to_step_id?: string | null
+          updated_at?: string
+          variant?: string | null
+          workflow_config_id: string
+        }
+        Update: {
+          branch_key?: string
+          condition?: Json
+          created_at?: string
+          from_step_id?: string
+          id?: string
+          label?: string
+          patch?: Json
+          sort_order?: number
+          tenant_id?: string
+          to_step_id?: string | null
+          updated_at?: string
+          variant?: string | null
+          workflow_config_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_decision_branches_config_tenant_fk"
+            columns: ["tenant_id", "workflow_config_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_configs"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "workflow_decision_branches_from_step_tenant_fk"
+            columns: ["tenant_id", "from_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "workflow_decision_branches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_decision_branches_to_step_tenant_fk"
+            columns: ["tenant_id", "to_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      workflow_steps: {
+        Row: {
+          checklist: Json
+          config: Json
+          created_at: string
+          icon: string | null
+          id: string
+          instructions: string | null
+          is_required: boolean
+          script_text: string | null
+          slug: string
+          sort_order: number
+          step_number: string | null
+          step_type: string
+          subtitle: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          workflow_config_id: string
+        }
+        Insert: {
+          checklist?: Json
+          config?: Json
+          created_at?: string
+          icon?: string | null
+          id?: string
+          instructions?: string | null
+          is_required?: boolean
+          script_text?: string | null
+          slug: string
+          sort_order?: number
+          step_number?: string | null
+          step_type?: string
+          subtitle?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+          workflow_config_id: string
+        }
+        Update: {
+          checklist?: Json
+          config?: Json
+          created_at?: string
+          icon?: string | null
+          id?: string
+          instructions?: string | null
+          is_required?: boolean
+          script_text?: string | null
+          slug?: string
+          sort_order?: number
+          step_number?: string | null
+          step_type?: string
+          subtitle?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          workflow_config_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_config_tenant_fk"
+            columns: ["tenant_id", "workflow_config_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_configs"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
