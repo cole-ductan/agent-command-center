@@ -1,477 +1,335 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
-  PointerSensor, useSensor, useSensors,
-  useDraggable, useDroppable,
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
+import { format } from "date-fns";
+import { Building2, CalendarDays, DollarSign, KanbanSquare, Loader2, Phone, Plus, UserRound } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { STAGES, type Stage, stageLabel } from "@/lib/stages";
-import { StageChip } from "@/components/StageChip";
-import { AddLeadDialog } from "@/components/AddLeadDialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Phone, Calendar, Flame, MapPin, Users, ExternalLink, DollarSign, HelpCircle, Trash2, Archive, ArchiveRestore } from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/pipeline")({
   component: PipelinePage,
 });
 
-type EventCard = {
-  id: string;
-  event_name: string;
-  stage: Stage;
-  course: string | null;
-  event_date: string | null;
-  hot_lead: boolean;
-  player_count: number | null;
-  entry_fee: number | null;
-  where_left_off: string | null;
-  notes: string | null;
-  archived: boolean;
-  dixon_tournament_id: string | null;
+type StageKey = "new" | "contacted" | "discovery" | "qualified" | "proposal" | "negotiation" | "won" | "lost";
+
+type StageDefinition = {
+  key: StageKey;
+  label: string;
+  description: string;
 };
 
-// Stage groups
-type GroupId = "active" | "in_progress" | "closed";
-const GROUPS: { id: GroupId; label: string; stages: Stage[]; tooltip?: string }[] = [
-  {
-    id: "active",
-    label: "Active",
-    stages: ["new_lead", "contacted", "left_voicemail", "call_back_needed"],
-  },
-  {
-    id: "in_progress",
-    label: "In Progress",
-    stages: ["pitch_delivered", "challenges_booked", "cgt_created", "proposal_sent", "follow_up_scheduled"],
-  },
-  {
-    id: "closed",
-    label: "Closed",
-    stages: ["closed_won", "closed_lost"],
-  },
+type Opportunity = {
+  id: string;
+  company_id: string | null;
+  primary_person_id: string | null;
+  name: string;
+  stage_key: string;
+  status: string;
+  value_amount: number | null;
+  currency: string | null;
+  expected_close_date: string | null;
+  next_step: string | null;
+  updated_at: string;
+};
+
+type Company = { id: string; name: string };
+type Person = { id: string; full_name: string };
+
+const STAGES: StageDefinition[] = [
+  { key: "new", label: "New", description: "Fresh opportunities that need first action." },
+  { key: "contacted", label: "Contacted", description: "Initial outreach started." },
+  { key: "discovery", label: "Discovery", description: "Needs, pain, and fit are being clarified." },
+  { key: "qualified", label: "Qualified", description: "Fit and next step are strong enough to pursue." },
+  { key: "proposal", label: "Proposal", description: "Proposal, pricing, or offer is in motion." },
+  { key: "negotiation", label: "Negotiation", description: "Working through terms, objections, or final details." },
+  { key: "won", label: "Won", description: "Closed successfully." },
+  { key: "lost", label: "Lost", description: "Closed unsuccessfully or disqualified." },
 ];
 
-// Tooltips for jargon stages
-const STAGE_TOOLTIPS: Partial<Record<Stage, string>> = {
-  cgt_created: "Account or workspace created for the lead.",
-  challenges_booked: "Demo or working session booked.",
-  pitch_delivered: "Full pitch / discovery completed.",
-  proposal_sent: "Formal proposal sent — awaiting their decision.",
-};
-
-// Estimated value: entry_fee × player_count (or 0)
-const cardValue = (c: EventCard) => (Number(c.entry_fee) || 0) * (Number(c.player_count) || 0);
+const STAGE_KEYS = new Set(STAGES.map((stage) => stage.key));
 
 function PipelinePage() {
   const { tenantId } = useActiveTenant();
-  const [events, setEvents] = useState<EventCard[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeGroup, setActiveGroup] = useState<GroupId>("active");
-  const [showArchived, setShowArchived] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const companyById = useMemo(() => new Map(companies.map((company) => [company.id, company.name])), [companies]);
+  const personById = useMemo(() => new Map(people.map((person) => [person.id, person.full_name])), [people]);
 
   const load = useCallback(async () => {
     if (!tenantId) {
-      setEvents([]);
+      setOpportunities([]);
+      setCompanies([]);
+      setPeople([]);
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from("events")
-      .select("id,event_name,stage,course,event_date,hot_lead,player_count,entry_fee,where_left_off,notes,archived,dixon_tournament_id")
-      .eq("tenant_id", tenantId)
-      .order("updated_at", { ascending: false });
-    setEvents((data ?? []) as any);
-    setLoading(false);
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const db = supabase as unknown as { from: (table: string) => any };
+      const [opportunityResult, companyResult, peopleResult] = await Promise.all([
+        db
+          .from("opportunities")
+          .select("id,company_id,primary_person_id,name,stage_key,status,value_amount,currency,expected_close_date,next_step,updated_at")
+          .eq("tenant_id", tenantId)
+          .order("updated_at", { ascending: false })
+          .limit(500),
+        db.from("companies").select("id,name").eq("tenant_id", tenantId).order("name", { ascending: true }).limit(500),
+        db.from("people").select("id,full_name").eq("tenant_id", tenantId).order("full_name", { ascending: true }).limit(500),
+      ]);
+
+      if (opportunityResult.error) throw opportunityResult.error;
+      if (companyResult.error) throw companyResult.error;
+      if (peopleResult.error) throw peopleResult.error;
+
+      setOpportunities((opportunityResult.data ?? []) as Opportunity[]);
+      setCompanies((companyResult.data ?? []) as Company[]);
+      setPeople((peopleResult.data ?? []) as Person[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load pipeline.");
+    } finally {
+      setLoading(false);
+    }
   }, [tenantId]);
-  useEffect(() => { load(); }, [load]);
 
-  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
-  const handleDragEnd = async (e: DragEndEvent) => {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const normalizedOpportunities = useMemo(
+    () => opportunities.map((opportunity) => ({
+      ...opportunity,
+      stage_key: STAGE_KEYS.has(opportunity.stage_key as StageKey) ? opportunity.stage_key : "new",
+    })),
+    [opportunities],
+  );
+
+  const active = activeId ? normalizedOpportunities.find((opportunity) => opportunity.id === activeId) : null;
+  const totalValue = normalizedOpportunities.reduce((sum, opportunity) => sum + (opportunity.value_amount ?? 0), 0);
+  const openCount = normalizedOpportunities.filter((opportunity) => opportunity.status === "open").length;
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
     setActiveId(null);
-    if (!e.over) return;
-    const id = String(e.active.id);
-    const newStage = String(e.over.id) as Stage;
-    const card = events.find((c) => c.id === id);
-    if (!card || card.stage === newStage) return;
-    setEvents((prev) => prev.map((c) => c.id === id ? { ...c, stage: newStage } : c));
-    const { error } = await supabase.from("events").update({ stage: newStage }).eq("id", id);
-    if (error) { toast.error("Update failed"); load(); }
-    else toast.success(`Moved to ${stageLabel(newStage)}`);
-  };
+    if (!event.over || !tenantId) return;
 
-  const updateOpenField = async (patch: Partial<EventCard>) => {
-    if (!openId) return;
-    setEvents((prev) => prev.map((c) => c.id === openId ? { ...c, ...patch } as EventCard : c));
-    const { error } = await supabase.from("events").update(patch as any).eq("id", openId);
-    if (error) toast.error("Save failed: " + error.message);
-  };
+    const id = String(event.active.id);
+    const newStage = String(event.over.id) as StageKey;
+    const opportunity = opportunities.find((item) => item.id === id);
+    if (!opportunity || opportunity.stage_key === newStage) return;
 
-  const deleteOpen = async () => {
-    if (!openId) return;
-    const id = openId;
-    const name = events.find((c) => c.id === id)?.event_name ?? "Event";
-    setOpenId(null);
-    setEvents((prev) => prev.filter((c) => c.id !== id));
-    const { error } = await supabase.from("events").delete().eq("id", id);
-    if (error) {
-      toast.error("Delete failed: " + error.message);
-      load();
+    const nextStatus = newStage === "won" ? "won" : newStage === "lost" ? "lost" : "open";
+    setOpportunities((prev) => prev.map((item) => item.id === id ? { ...item, stage_key: newStage, status: nextStatus } : item));
+
+    const db = supabase as unknown as { from: (table: string) => any };
+    const { error: updateError } = await db
+      .from("opportunities")
+      .update({ stage_key: newStage, status: nextStatus })
+      .eq("tenant_id", tenantId)
+      .eq("id", id);
+
+    if (updateError) {
+      toast.error("Pipeline update failed");
+      void load();
     } else {
-      toast.success(`Deleted "${name}"`);
+      toast.success(`Moved to ${stageLabel(newStage)}`);
     }
   };
-
-  const archiveOpen = async () => {
-    if (!openId) return;
-    const card = events.find((c) => c.id === openId);
-    if (!card) return;
-    const newArchived = !card.archived;
-    setEvents((prev) => prev.map((c) => c.id === openId ? { ...c, archived: newArchived } : c));
-    const patch: any = { archived: newArchived, archived_at: newArchived ? new Date().toISOString() : null };
-    const { error } = await supabase.from("events").update(patch).eq("id", openId);
-    if (error) { toast.error("Archive failed: " + error.message); load(); }
-    else toast.success(newArchived ? "Archived" : "Restored");
-  };
-
-  const active = activeId ? events.find((c) => c.id === activeId) : null;
-  const open = openId ? events.find((c) => c.id === openId) : null;
-
-  // Counts per group
-  const groupCounts = useMemo(() => {
-    const m: Record<GroupId, number> = { active: 0, in_progress: 0, closed: 0 };
-    for (const e of events) {
-      if (!showArchived && e.archived) continue;
-      for (const g of GROUPS) {
-        if (g.stages.includes(e.stage)) { m[g.id]++; break; }
-      }
-    }
-    return m;
-  }, [events, showArchived]);
-
-  const visibleStages = GROUPS.find((g) => g.id === activeGroup)!.stages;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex min-h-[calc(100vh-88px)] md:h-[calc(100vh-1px)] flex-col">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 md:px-8 md:py-4">
+    <div className="flex min-h-[calc(100vh-48px)] flex-col bg-background">
+      <header className="border-b bg-card/95 px-4 py-4 md:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-2xl md:text-3xl font-semibold">Pipeline</h1>
-            <p className="text-xs text-muted-foreground">Drag cards across stages. Click to inspect & edit.</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">RepPilot Core CRM</p>
+            <h1 className="font-display text-3xl font-semibold">Pipeline</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Drag opportunities across neutral sales stages.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Tabs value={activeGroup} onValueChange={(v) => setActiveGroup(v as GroupId)}>
-              <TabsList>
-                {GROUPS.map((g) => (
-                  <TabsTrigger key={g.id} value={g.id} className="gap-1.5">
-                    {g.label}
-                    <span className="rounded-full bg-secondary px-1.5 py-0 text-[10px] font-mono text-muted-foreground">
-                      {groupCounts[g.id]}
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-            <Button
-              size="sm"
-              variant={showArchived ? "default" : "outline"}
-              onClick={() => setShowArchived((v) => !v)}
-              title={showArchived ? "Hide archived" : "Show archived"}
-            >
-              <Archive className="mr-1.5 h-3.5 w-3.5" />
-              {showArchived ? "Hiding archived" : "Show archived"}
-            </Button>
-            <AddLeadDialog onCreated={load} />
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline"><Link to="/opportunities">Opportunities</Link></Button>
+            <Button asChild><Link to="/start-call"><Plus className="mr-2 h-4 w-4" />New Opportunity</Link></Button>
           </div>
-        </header>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Metric label="Open opportunities" value={String(openCount)} />
+          <Metric label="Total pipeline value" value={formatCurrency(totalValue, "USD")} />
+          <Metric label="Stages" value={String(STAGES.length)} />
+        </div>
+      </header>
 
-        {loading ? (
-          <div className="flex-1 grid place-items-center text-muted-foreground">Loading…</div>
-        ) : (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="flex-1 min-h-0 overflow-x-auto">
-              <div className="flex h-full gap-3 px-4 md:px-8 py-4 min-w-max">
-                {visibleStages.map((s) => {
-                  const items = events.filter((e) => e.stage === s && (showArchived || !e.archived));
-                  return (
-                    <Column key={s} stage={s} count={items.length}>
-                      {items.map((card) => (
-                        <DraggableCard key={card.id} card={card} onOpen={() => setOpenId(card.id)} />
-                      ))}
-                      {items.length === 0 && (
-                        <div className="rounded-md border-2 border-dashed border-border/60 px-2 py-4 text-center text-[11px] text-muted-foreground">
-                          Drop here
-                        </div>
-                      )}
-                    </Column>
-                  );
-                })}
-              </div>
+      {loading ? (
+        <StateMessage icon={<Loader2 className="h-4 w-4 animate-spin" />}>Loading pipeline…</StateMessage>
+      ) : error ? (
+        <StateMessage tone="error">{error}</StateMessage>
+      ) : normalizedOpportunities.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="min-h-0 flex-1 overflow-x-auto">
+            <div className="flex h-full min-w-max gap-3 px-4 py-4 md:px-8">
+              {STAGES.map((stage) => {
+                const items = normalizedOpportunities.filter((opportunity) => opportunity.stage_key === stage.key);
+                return (
+                  <Column key={stage.key} stage={stage} count={items.length} value={items.reduce((sum, item) => sum + (item.value_amount ?? 0), 0)}>
+                    {items.map((opportunity) => (
+                      <DraggableCard
+                        key={opportunity.id}
+                        opportunity={opportunity}
+                        companyName={opportunity.company_id ? companyById.get(opportunity.company_id) : null}
+                        personName={opportunity.primary_person_id ? personById.get(opportunity.primary_person_id) : null}
+                      />
+                    ))}
+                    {items.length === 0 && (
+                      <div className="rounded-md border-2 border-dashed border-border/60 px-2 py-4 text-center text-[11px] text-muted-foreground">
+                        Drop here
+                      </div>
+                    )}
+                  </Column>
+                );
+              })}
             </div>
-            <DragOverlay>
-              {active && <PipelineCard card={active} dragging />}
-            </DragOverlay>
-          </DndContext>
-        )}
-
-        <Sheet open={!!open} onOpenChange={(v) => !v && setOpenId(null)}>
-          <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-            {open && (
-              <>
-                <SheetHeader>
-                  <SheetTitle className="font-display text-2xl pr-8">{open.event_name}</SheetTitle>
-                  <SheetDescription className="flex items-center gap-2"><StageChip stage={open.stage} /></SheetDescription>
-                </SheetHeader>
-                <div className="mt-6 space-y-4 text-sm">
-                  {open.course && <Detail icon={<MapPin className="h-3.5 w-3.5" />} label="Location" value={open.course} />}
-                  {open.event_date && <Detail icon={<Calendar className="h-3.5 w-3.5" />} label="Event date" value={format(new Date(open.event_date), "EEEE, MMMM d, yyyy")} />}
-
-                  {/* Editable stage */}
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stage</Label>
-                    <Select value={open.stage} onValueChange={(v) => updateOpenField({ stage: v as Stage })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {STAGES.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Editable quantity & unit price */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quantity</Label>
-                      <NumberField
-                        value={open.player_count}
-                        onSave={(v) => updateOpenField({ player_count: v })}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit price</Label>
-                      <NumberField
-                        value={open.entry_fee}
-                        onSave={(v) => updateOpenField({ entry_fee: v })}
-                        prefix="$"
-                      />
-                    </div>
-                  </div>
-                  {cardValue(open) > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      Estimated value: <span className="font-mono text-foreground">${cardValue(open).toLocaleString()}</span>
-                    </div>
-                  )}
-
-                  {/* Editable where we left off */}
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Where we left off</Label>
-                    <TextField
-                      value={open.where_left_off ?? ""}
-                      onSave={(v) => updateOpenField({ where_left_off: v || null })}
-                      placeholder="What's the next move?"
-                    />
-                  </div>
-
-                  {/* Editable external ID */}
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">External ID</Label>
-                    <TextField
-                      value={open.dixon_tournament_id ?? ""}
-                      onSave={(v) => updateOpenField({ dixon_tournament_id: v || null })}
-                      placeholder="Optional reference ID"
-                    />
-                  </div>
-
-                  {/* Editable notes */}
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</Label>
-                    <TextField
-                      value={open.notes ?? ""}
-                      onSave={(v) => updateOpenField({ notes: v || null })}
-                      placeholder="Anything you want to remember…"
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="pt-4 flex flex-wrap gap-2">
-                    <Button asChild>
-                      <Link to="/call" search={{ eventId: open.id }}><Phone className="mr-1.5 h-4 w-4" />Open in Call Workspace<ExternalLink className="ml-1 h-3 w-3" /></Link>
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={archiveOpen}>
-                      {open.archived ? (<><ArchiveRestore className="mr-1.5 h-4 w-4" />Restore</>) : (<><Archive className="mr-1.5 h-4 w-4" />Archive</>)}
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="mr-1.5 h-4 w-4" />Delete event
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete "{open.event_name}"?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This permanently removes the event and any related calls, emails, tasks, and notes linked to it. This cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={deleteOpen}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              </>
+          </div>
+          <DragOverlay>
+            {active && (
+              <PipelineCard
+                opportunity={active}
+                companyName={active.company_id ? companyById.get(active.company_id) : null}
+                personName={active.primary_person_id ? personById.get(active.primary_person_id) : null}
+                dragging
+              />
             )}
-          </SheetContent>
-        </Sheet>
-      </div>
-    </TooltipProvider>
-  );
-}
-
-function Detail({ icon, label, value }: { icon?: React.ReactNode; label: string; value: string }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
-      <div className="mt-0.5">{value}</div>
-    </div>
-  );
-}
-
-function TextField({
-  value, onSave, placeholder, rows = 2,
-}: { value: string; onSave: (v: string) => void; placeholder?: string; rows?: number }) {
-  const [v, setV] = useState(value);
-  useEffect(() => { setV(value); }, [value]);
-  return (
-    <Textarea
-      value={v}
-      rows={rows}
-      placeholder={placeholder}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => v !== value && onSave(v)}
-      className="leading-relaxed"
-    />
-  );
-}
-
-function NumberField({
-  value, onSave, prefix,
-}: { value: number | null; onSave: (v: number | null) => void; prefix?: string }) {
-  const [v, setV] = useState(value == null ? "" : String(value));
-  useEffect(() => { setV(value == null ? "" : String(value)); }, [value]);
-  return (
-    <div className="relative">
-      {prefix && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{prefix}</span>}
-      <Input
-        type="number"
-        className={prefix ? "pl-5" : ""}
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        onBlur={() => {
-          const trimmed = v.trim();
-          const next = trimmed === "" ? null : Number(trimmed);
-          if (next !== value) onSave(next);
-        }}
-      />
-    </div>
-  );
-}
-
-function Column({ stage, count, children }: { stage: Stage; count: number; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage });
-  const tooltip = STAGE_TOOLTIPS[stage];
-  return (
-    <div className="flex w-[78vw] sm:w-72 shrink-0 flex-col rounded-xl border bg-card">
-      <div className="flex items-center justify-between border-b px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <StageChip stage={stage} />
-          {tooltip && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="text-muted-foreground hover:text-foreground" aria-label="Stage info">
-                  <HelpCircle className="h-3 w-3" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[240px] text-xs">
-                {tooltip}
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-        <span className="text-xs font-mono text-muted-foreground">{count}</span>
-      </div>
-      <div
-        ref={setNodeRef}
-        className={`flex-1 min-h-[100px] space-y-2 p-2 transition-colors ${isOver ? "bg-secondary/60" : ""}`}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function DraggableCard({ card, onOpen }: { card: EventCard; onOpen: () => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
-  return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      onClick={onOpen}
-      className={`cursor-grab active:cursor-grabbing ${isDragging ? "opacity-30" : ""}`}
-    >
-      <PipelineCard card={card} />
-    </div>
-  );
-}
-
-function PipelineCard({ card, dragging }: { card: EventCard; dragging?: boolean }) {
-  const value = cardValue(card);
-  return (
-    <div className={`rounded-lg border bg-background p-3 text-sm shadow-[var(--shadow-card)] ${dragging ? "rotate-1 shadow-[var(--shadow-elevated)]" : ""} ${card.archived ? "opacity-60" : ""}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-medium leading-tight">{card.event_name}</div>
-        <div className="flex items-center gap-1 shrink-0">
-          {card.archived && <Archive className="h-3 w-3 text-muted-foreground" />}
-          {card.hot_lead && <Flame className="h-3.5 w-3.5" style={{ color: "var(--clay)" }} />}
-        </div>
-      </div>
-      {card.course && <div className="mt-1 text-xs text-muted-foreground truncate">{card.course}</div>}
-      <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-        {card.event_date ? <span>{format(new Date(card.event_date), "MMM d")}</span> : <span />}
-        {card.player_count && <span className="font-mono">{card.player_count} players</span>}
-      </div>
-      {value > 0 && (
-        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-mono text-foreground/80">
-          <DollarSign className="h-3 w-3" />
-          {value.toLocaleString()}
-        </div>
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );
+}
+
+function Column({ stage, count, value, children }: { stage: StageDefinition; count: number; value: number; children: ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({ id: stage.key });
+  return (
+    <section ref={setNodeRef} className={`flex h-full w-[290px] shrink-0 flex-col rounded-xl border bg-card shadow-[var(--shadow-card)] ${isOver ? "ring-2 ring-primary" : ""}`}>
+      <header className="border-b px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold">{stage.label}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{stage.description}</p>
+          </div>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-mono text-muted-foreground">{count}</span>
+        </div>
+        <div className="mt-2 text-xs text-muted-foreground">Value: <span className="font-mono text-foreground">{formatCurrency(value, "USD")}</span></div>
+      </header>
+      <div className="min-h-[160px] flex-1 space-y-3 overflow-y-auto p-3">{children}</div>
+    </section>
+  );
+}
+
+function DraggableCard({ opportunity, companyName, personName }: { opportunity: Opportunity; companyName: string | null | undefined; personName: string | null | undefined }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opportunity.id });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
+      <PipelineCard opportunity={opportunity} companyName={companyName} personName={personName} />
+    </div>
+  );
+}
+
+function PipelineCard({ opportunity, companyName, personName, dragging = false }: { opportunity: Opportunity; companyName: string | null | undefined; personName: string | null | undefined; dragging?: boolean }) {
+  return (
+    <article className={`rounded-xl border bg-background p-3 shadow-sm ${dragging ? "shadow-lg" : ""}`}>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <Link to="/opportunity-detail" search={{ opportunityId: opportunity.id }} className="line-clamp-2 font-medium hover:text-primary">
+          {opportunity.name}
+        </Link>
+        <KanbanSquare className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      </div>
+
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <MiniLine icon={<Building2 className="h-3.5 w-3.5" />} value={companyName ?? "No company"} />
+        <MiniLine icon={<UserRound className="h-3.5 w-3.5" />} value={personName ?? "No person"} />
+        {opportunity.expected_close_date && <MiniLine icon={<CalendarDays className="h-3.5 w-3.5" />} value={`Close ${format(new Date(opportunity.expected_close_date), "MMM d")}`} />}
+        {typeof opportunity.value_amount === "number" && <MiniLine icon={<DollarSign className="h-3.5 w-3.5" />} value={formatCurrency(opportunity.value_amount, opportunity.currency ?? "USD")} />}
+      </div>
+
+      {opportunity.next_step && <div className="mt-3 rounded-md bg-secondary/50 px-2 py-1.5 text-xs text-muted-foreground">Next: {opportunity.next_step}</div>}
+
+      <div className="mt-3 flex gap-2">
+        <Button asChild size="sm" variant="outline" className="h-8 flex-1 text-xs">
+          <Link to="/opportunity-detail" search={{ opportunityId: opportunity.id }}>View</Link>
+        </Button>
+        <Button asChild size="sm" className="h-8 flex-1 text-xs">
+          <Link to="/live-call" search={{ opportunityId: opportunity.id }}><Phone className="mr-1 h-3.5 w-3.5" />Call</Link>
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <section className="rounded-lg border bg-background/70 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="font-display text-lg font-semibold">{value}</div>
+    </section>
+  );
+}
+
+function MiniLine({ icon, value }: { icon: ReactNode; value: string }) {
+  return <div className="flex min-w-0 items-center gap-1.5">{icon}<span className="truncate">{value}</span></div>;
+}
+
+function StateMessage({ children, icon, tone }: { children: ReactNode; icon?: ReactNode; tone?: "error" }) {
+  return (
+    <div className={`m-6 flex items-center gap-2 rounded-xl border bg-card p-5 text-sm shadow-[var(--shadow-card)] ${tone === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+      {icon}
+      {children}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="mx-auto max-w-xl px-4 py-10">
+      <div className="rounded-xl border bg-card p-8 text-center shadow-[var(--shadow-card)]">
+        <h2 className="font-display text-2xl font-semibold">No opportunities yet</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Create your first opportunity, then use this board to move it through the sales process.</p>
+        <Button asChild className="mt-4"><Link to="/start-call"><Plus className="mr-2 h-4 w-4" />New Opportunity</Link></Button>
+      </div>
+    </div>
+  );
+}
+
+function stageLabel(stageKey: StageKey) {
+  return STAGES.find((stage) => stage.key === stageKey)?.label ?? humanize(stageKey);
+}
+
+function humanize(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatCurrency(value: number, currency: string) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 }
